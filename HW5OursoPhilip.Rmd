@@ -1,0 +1,132 @@
+---
+title: 'ST558: HW5'
+author: "Philip Ourso"
+date: "November 29, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, warning=FALSE, echo=FALSE, message=FALSE}
+#library(tidyverse)
+#library(ICSNP)
+#library(rrcov)
+
+#library(MASS)
+#library(class)
+#library(rpart)
+#library(rpart.plot)
+library(ca)
+```
+
+## 1. Archaeological sites
+```{r}
+#read distances
+arch.dist = read.csv("ArchaeoData.csv")
+#arch.dist
+```
+### a. Plot the MDS coordinates of the sites.  
+
+    The two-dimensional coordinates are plotted below.     
+    
+```{r}
+#multidimensional scaling w/ g == 2
+arch.mds = cmdscale(arch.dist, k = 2)
+plot(arch.mds, pch=16 )
+text(arch.mds, labels = row.names(arch.mds), pos = 2, cex = 0.5)
+
+```
+
+### b. Compare the distance matrix from the MDS coordinates to the original distance matrix: Does it seem like the original distances are well-represented by the 2-dimensional MDS solution?  
+
+    Looking at the plot above, sites 2 and 8 are clearly the most distant from other scaled points, and closest to each other; while these are distant points, they have closer neighbors than each other in the original distance matrix. Closely comparing the ranking of distances for each site and comparing to the plot reveals that the rank for a given site's distances to other sites is not preserved.  
+    On the other hand, site 9 is well represented as a point close to all points, bridging the distant sites with the large cluster of proximal sites. And while there are frequent changes in the ranking, as noted above, the overall sense of proximity is captured reasonably well.  
+    
+```{r}
+arch.dist
+arch.mds
+
+
+```
+
+## 2. Track data  
+```{r}
+track = read.csv("TrackData.csv")
+head(track)
+```
+  
+### a. Calculate the Euclidean distances between all of the pairs of countries. (Remember to remove the first two columns which contain country names and abbreviations before computing the distances!) Using these distances as a measure of dissimilarity, determine the coordinates of the countries in q  = 2 dimensions using multidimensional scaling.  
+    
+    The coordinates are displayed and plotted below.   
+
+```{r, fig.width=12}
+#scale
+track.distEuc.sc = dist(scale(track[,3:10]))
+
+#get distance matrix
+track.distEuc = dist(track[,3:10], method = "euc")
+
+#multidimensional scaling/ principal coordinate analysis
+track.mds = cmdscale(track.distEuc, k=2)
+data.frame(abb = track[,"Abbrev"], x = track.mds[,1], y = track.mds[,2])
+
+#plot 
+plot(track.mds, pch=16)
+text(track.mds, labels = track[,"Abbrev"], pos=1, cex = 0.5)
+```
+
+### b. 	Calculate the correlation distances between all of the pairs of countries X_i and X_j using d(X_i,X_j )=1-cor(X_i,X_j). Using these distances as a measure of dissimilarity, determine the coordinates of the countries in q  = 2 dimensions using multidimensional scaling.   
+
+    The coordinates are plotted below.  
+
+```{r, fig.width=12}
+#scale
+track.sc = scale(track[,3:10])
+
+#correlation distance
+track.distCor = 1 - cor(t(track.sc))
+
+#mds
+track.mds.cor = cmdscale(track.distCor, k = 2)
+plot(track.mds.cor, pch=16)
+text(track.mds.cor, labels = track[,"Abbrev"], pos=1, cex = 0.5)
+
+
+
+```
+
+### c. Which of the distance measures (from parts a. and b. above) produces a “better” MDS solution? Explain your choice—there are no wrong answers here.  
+  
+    The two distance measures appear to result in an MDS solution that address different dissimilarities: the Euclidean approach produces a plot in which most countries are clustered together, with a few countries plotted more remotely, whereas the correlation distance metric produces a plot in which there are generally two clusters, with a few countries bridging these clusters.  
+    Comparing results for countries occupying different clusters of each plot suggests that the Euclidean approach is clustering countries by how well they do across races, while the correlation approach has grouped countries as "short distance" or "long distance" performers. This is intuitive given the distance metrics. Which solution is best depends on the goal of the analysis; both provide informative generalizations.  
+  
+## State Migration Data  
+  
+    
+### a. Perform correspondence analysis on this data and plot the resulting dimensions. Describe the resulting plot: which origin states are most associated with which destination states? Which destination states have the most similar profiles? Which origin states have the most similar profiles?  
+    
+    The coordinates from the correspondence analysis are plotted below. The plot has one large cluster, and two "wings", which appear to show regional shifts. The first "wing", in the upper left quadrant, shows migration from smaller New England states (Maine, Vermont, Rhode Island, New Hampshire) to larger, more populous east coast states (Massachusetts, New York, Florida). The second "wing", lower left, shows mid-Atlantic and Northeast migration, again from smaller, less populous states (Delaware, West Virginia) to larger nearby states (Ohio, Pennsylvania, Virginia, North Carolina, New Jersey).  
+    The tightest cluster shows midwestern and northwestern migration from less populous states (e.g. Montana, Idaho) to more populous states (Texas, California, Washington), continuing the trend of increasing contrast between density and sparseness.  
+    Texas and California are the destinations with the most similar profiles. North Dakota and New Mexico are origin states with very similar profiles, although Alaska and Hawaii are also quite similar.   
+    
+```{r}
+state = read.csv("StateMigrationData.csv")
+
+#correspondence analysis
+state.ca = ca(state[,-1])
+
+#add row names
+state.ca$rownames = state[,1]
+
+#plot ca coord's
+par(cex=1)
+plot(state.ca,  xlim=c(-1.5, 1))
+```
+
+### Appendix: R code
+```{r ref.label=knitr::all_labels(), echo = T, eval = F}
+```
+
+

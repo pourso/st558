@@ -1,0 +1,217 @@
+---
+title: "ST558: Module1 R Activity"
+author: "Philip Ourso"
+date: "October 5, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, warning=FALSE, message=FALSE, echo=FALSE}
+library(tidyverse)
+library(gridExtra)
+library(corrplot)
+```
+
+# Seeds Data  
+  
+## Exploratory Data Analysis  
+```{r}
+# read data set to dataframe
+df = read.csv("SeedsData.csv")
+```
+1. What are the dimensions of this dataset:  
+    + Number of observations?  
+    + Number of variables?  
+  
+    As can be seen below, the dimensions of the data set are 210 x 8, indicating 210 observations of 8 variables.  
+    
+```{r}
+dims = dim(df)
+dims
+```
+
+2. Report the head and tail of this data set.  
+      
+    Using the head and tail() functions we can display the first and last 6 rows of the data set.  
+    
+```{r}
+head(df, 6)
+tail(df, 6)
+```
+
+3. Provide the default summary statistics for each variable.  
+    
+    The summary statistics of the variables in the data set can be found with the summary() function, as below.  The default statistics include min, max, mean, median and first and third quantiles.  
+    
+```{r}
+summary(df)
+```
+
+4. What variable type is R using to store each variable?  
+
+    The str() function can be used to indicate variable types in R, as below. It can be seen that all variables except Variety are stored as numeric variables, while Variety is stored as an integer variable.    
+    
+```{r}
+str(df)
+```
+
+5. Are any of those variable types perhaps inappropriate? If so, convert the variables to a more appropriate type.  
+  
+    Since Variety is a categorical variable, it might be better represented as a factor, which can be done with the below code.  
+  
+```{r}
+#save origina data before casting type
+variety.orig = df$Variety
+df$Variety = factor(df$Variety)
+str(df)
+```
+
+## Make Plots  
+6. Produce histograms of each of the first seven variables (all except 'Variety').  
+  
+    Histograms of the numeric variables are produced by the below code.  
+    
+```{r}
+
+#iterate through the first seven variables and create histograms of each
+for(j in 1:7){
+  p = ggplot(df, aes(x = df[,j])) +
+    geom_histogram() + 
+    theme_bw() + 
+    labs(x = colnames(df)[j])
+  plot(p)
+}
+```
+
+7. Produce pairwise scatterplots of all of the pairs of variables, with the points colored by the wheat variety.  
+    
+    The pairwise plots are shown below.  
+    
+```{r}    
+#corrplot(cor(df[,1:7]), method = "ellipse",
+#           title = "Seeds Data Correlation")
+
+#create pairwise scatterplots of each pair of numeric variables, colored by wheat variety
+pairs(df[,1:7],col=rainbow(3)[df$Variety])
+```
+
+## Calculate Sample Statistics  
+
+8. What is the sample mean vector?  
+    
+    The sample mean vector for numeric variables is produced by the below code.  
+    
+```{r}
+df.sampMeans = apply(df[,1:7],2,mean)
+df.sampMeans
+```
+
+9. What is the sample covariance matrix?  
+    
+    The sample covariance matrix is produced by the below code.  
+    
+```{r}
+df.cov = cov(df[,1:7], use = 'pairwise.complete.obs')
+df.cov
+```
+
+10. What is the sample correlation matrix?  
+    
+    The sample correlation matrix is produced by the below code.  
+    
+```{r}
+df.cor = cor(df[,1:7], use = 'pairwise.complete.obs')
+df.cor
+```
+
+## Modified Data Set  
+    
+    Create a modified data set with a new name where the 'Compactness' variable is multiplied by 100. Calculate the sample statistics for this new modified data set.  
+    
+```{r}
+#duplicate the dataframe and scal Compactness values
+df.mod1 = df
+df.mod1$Compactness = df.mod1$Compactness*100
+
+summary(df.mod1)
+```
+    
+11. What is the sample mean vector for the modified data?  
+    
+    The sample mean vector for the modified data is below.  
+    
+```{r}
+apply(df.mod1[,1:7],2,mean)
+```
+
+12. What is sample covariance matrix for the modified data?  
+    
+    The sample covariance matrix is produced by the below code.   
+   
+```{r}
+cov(df.mod1[,1:7],use = 'pairwise.complete.obs')
+
+```
+
+13. What is the sample correlation matrix for the modified data?  
+    
+    The sample correlation matrix is produced by the below code.  
+    
+```{r}
+cor(df.mod1[,1:7],use = 'pairwise.complete.obs')
+```
+
+14. How have the sample statistics changed from the statistics for the original data?  
+    
+    The sample mean vector is nearly the same, with the only difference being the Compactness variable's mean, which is now also scaled by a factor of 100.  
+    The covariance matrix is also similar, although the Compactness covariance with the other variables has also scaled.  
+    THe correlation matrix is identical, showing that the correlation between two variables is robust to changes in scale.  
+    
+## Modified Data Set  2
+    
+    Create a modified data set with a new name where the 'Asymmetry' variable is shifted by subtracting its sample mean. Calculate the sample statistics for this new modified data set.
+
+```{r}
+df.mod2 = df
+df.mod2$Asymmetry = df.mod2$Asymmetry-mean(df.mod2$Asymmetry)
+
+summary(df.mod2)
+```
+    
+15. What is the sample mean vector for the modified data?  
+    
+    The sample mean vector for the modified data is below.  
+    
+```{r}
+apply(df.mod2[,1:7],2,mean)
+```
+
+12. What is sample covariance matrix for the modified data?  
+    
+    The sample covariance matrix is produced by the below code.   
+   
+```{r}
+cov(df.mod2[,1:7],use = 'pairwise.complete.obs')
+
+```
+
+17. What is the sample correlation matrix for the modified data?  
+    
+    The sample correlation matrix is produced by the below code.  
+    
+```{r}
+cor(df.mod2[,1:7],use = 'pairwise.complete.obs')
+```
+    
+18. How have the sample statistics changed from the statistics for the original data?  
+    
+    The sample mean vector is nearly the same, with the only difference being the Asymmetry variable's mean, which is now "centered", and effectively 0.  
+    The covariance matrix is identical, showing that covariance between two variables does not change when variables are centered.  
+    THe correlation matrix is identical, showing that the correlation between two variables does not change when variables are centered. 
+
+## Appendix: R code
+```{r ref.label=knitr::all_labels(), echo = T, eval = F}
+```

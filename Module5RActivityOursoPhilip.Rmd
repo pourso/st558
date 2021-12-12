@@ -1,0 +1,429 @@
+---
+title: "ST558: Module5 R Activity"
+author: "Philip Ourso"
+date: "November 2, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, warning=FALSE, message=FALSE, echo=FALSE}
+library(tidyverse)
+library(gridExtra)
+library(corrplot)
+
+library(MASS)
+library(class)
+library(rpart)
+library(rpart.plot)
+```
+
+# Set working dir and read in data  
+
+```{r}
+setwd("C:/Users/pourso/Google Drive/School/st558")
+iris = read.csv('IrisData.csv')
+vert = read.csv('VertebralColumnData.csv')
+```
+  
+1. Read in ‘BalWineData.csv’, which contains measurements on 6 variables for 45 wines each from three different varieties.  The variables measured are Alcohol Content, Malic Acid, Ash, Magnesium, Total Phenols, and Flavonoids.  Save this data as ‘wine’, and display the first six rows of the dataset.    
+  
+    The first 6 rows are displayed below.    
+    
+```{r}
+wine = read.csv('BalWineData.csv')
+head(wine,6)
+```
+
+2. Make a pairs plot of the 6 predictor variables (the first 6 columns) of this data set, with points colored by the wine variety (column 7).   Does it look like there is good separation between the three wine varieties using these six variables?  
+    
+    The pairwise scatterplots are created below. While there is overlap, it looks like there is pretty good separation between varieties across variables.      
+    
+```{r}
+pairs(wine[,1:6], 
+#      pch=rep(c(1,19,19),c(nrow(hrbp),1,1)),
+      col=rainbow(length(unique(wine$Variety)))[wine$Variety])
+```
+
+# 3.	Performing linear discriminant analysis (LDA) by hand  
+    
+    
+```{r}
+#separate iris types, calc sample size
+irisT1 = iris[iris$Type==1,1:4]
+irisT2 = iris[iris$Type==2,1:4]
+irisT3 = iris[iris$Type==3,1:4]
+
+n1 = nrow(irisT1)
+n2 = nrow(irisT2)
+n3 = nrow(irisT3)
+
+p = ncol(irisT1)
+
+#compute mean vecs, covariance matrices, pooled covariance
+irisT1.xbar = apply(irisT1,2,mean)
+irisT2.xbar = apply(irisT2,2,mean)
+irisT3.xbar = apply(irisT3,2,mean)
+
+irisT1.cov = cov(irisT1)
+irisT2.cov = cov(irisT2)
+irisT3.cov = cov(irisT3)
+
+# calculate pooled sample covariance matrix
+iris.Sp = (irisT1.cov*(n1-1) + irisT2.cov*(n2-1) + irisT3.cov*(n3-1))/
+  (n1+n2+n3-3)
+
+#calc combined sample covariance matrix
+iris.S = cov(iris[,1:4])
+
+#construct W and T to get B
+Wmat = (n1+n2+n3-3)*iris.Sp
+Tmat = (nrow(iris)-1)*iris.S
+Bmat = Tmat-Wmat
+
+#compute inv(W)B
+WinvB = solve(Wmat) %*% Bmat
+
+#get eigenvalues/ vectors
+WinvB.eigen = eigen(WinvB)
+v1 = WinvB.eigen$vec[,1]
+v1
+v2 = WinvB.eigen$vec[,2]
+v2
+
+#visualize separation by discriminant functions
+Y1vals = as.matrix(iris[,1:4]) %*% v1
+Y2vals = as.matrix(iris[,1:4]) %*% v2
+
+plot(Y1vals, Y2vals, col = iris$Type+1, xlab=expression(Y[1]),
+     ylab = expression(Y[2]))
+
+WinvB.eigen$values[1:2]/sum(WinvB.eigen$values)
+```
+
+3. Calculate the two linear discriminant function directions for the ‘wine’ data by hand, and give the coefficients for each direction (no need to scale to match the ‘lda()’ function output).  
+    
+    The coefficients for the two linear discriminant functions are below:    
+    [1]  0.146442552  0.147350264  0.567895834 -0.001446486  0.054398896 -0.794591385    
+
+    [2]  0.787051819  0.048689512  0.611453484  0.002893301 -0.040601905 0.051444302    
+    
+```{r}
+#separate wine by type
+unique(wine$Variety)
+dim(wine)
+wineV1 = wine[wine$Variety==1,1:6]
+n1 = nrow(wineV1)
+wineV2 = wine[wine$Variety==2,1:6]
+n2 = nrow(wineV2)
+wineV3 = wine[wine$Variety==3,1:6]
+n3 = nrow(wineV3)
+
+#calc means, covariance matrices
+winev1.xbar = apply(wineV1,2,mean)
+winev1.cov = cov(wineV1)
+winev2.xbar = apply(wineV2,2,mean)
+winev2.cov = cov(wineV2)
+winev3.xbar = apply(wineV3,2,mean)
+winev3.cov = cov(wineV3)
+
+#calc pooled covariance
+wine.sp = ( (n1-1)*winev1.cov + (n2-1)*winev2.cov + (n3-1)*winev3.cov)/
+  (n1+n2+n3-3)
+
+#calc sample covariance
+wine.S = cov(wine[,1:6])
+
+#find W, T, B
+Wmat = (n1+n2+n3-3)*wine.sp
+Tmat = (nrow(wine)-1)*wine.S
+Bmat = Tmat - Wmat
+
+#find inv(W)B
+WinvB = solve(Wmat) %*% Bmat
+WinvB.eigen = eigen(WinvB)
+
+WinvB.eigen
+WinvB.eigen$vectors[,1]
+WinvB.eigen$vectors[,2]
+```
+
+4. Compute the linear discriminant values for both linear discriminant directions for each observation of the ‘wine’ data.  Plot the first linear discriminant values (x-axis) vs. the second linear discriminant values (y-axis) and color the points by variety.  Are the three varieties well separated by the linear discriminant functions?  
+    
+    The plot is below. The 2 functions do a good job of separating, although neither is great on its own: the first discriminant function does a good job of separating the "blue" variety from the other two, but overlaps the "red" and "green" varieties. The second discriminant function does a better job of separating the red and green varieties, but blue overlaps both.    
+
+```{r}
+Y1vals = as.matrix(wine[,1:6]) %*% WinvB.eigen$vectors[,1]
+Y2vals = as.matrix(wine[,1:6]) %*% WinvB.eigen$vectors[,2]
+
+plot(Y1vals, Y2vals, col = rainbow(3)[wine$Variety],
+     xlab = expression(Y[1]),
+     ylab = expression(Y[2]))
+
+```
+
+# 4.	Performing linear discriminant analysis (LDA) using a function in a contributed R package  
+
+```{r}
+iris.lda = lda(Type ~ Sepal.Length + Sepal.Width + Petal.Length
+               + Petal.Width, data=iris)
+iris.lda
+
+d1 = sqrt(1/ (v1 %*% iris.Sp %*% v1))*v1
+d2 = sqrt(1/ (v2 %*% iris.Sp %*% v2))*v2
+d1
+d2
+
+iris.lda$scaling
+names(iris.lda)
+```
+
+
+5. Use the ‘lda()’ function to perform linear discriminant analysis on the ‘wine’ data.  Based on this output, how much of the total separation does the first linear discriminant direction explain?  
+  
+    According to the results of lda(), the first discriminant accounts for ~ 61% of the total separation.  
+  
+```{r}
+colnames(wine)
+wine.lda = lda(Variety ~ Alcohol + MalicAcid + Ash + Magnesium +
+                 TotalPhenols + Flavonoids, data = wine)
+wine.lda
+```
+
+# 5.	Predicting class membership for a new observation using LDA    
+
+```{r}
+iris.newObs = data.frame("Sepal.Length"=7.5,
+                         "Sepal.Width" = 4.0,
+                         "Petal.Length" = 5.0,
+                         "Petal.Width" = 1.0)
+iris.newObs.v = as.numeric(iris.newObs)
+iris.newObs
+iris.newObs.v
+
+discVal1 = t(iris.newObs.v - irisT1.xbar) %*% solve(iris.Sp) %*% (iris.newObs.v - irisT1.xbar)
+discVal2 = t(iris.newObs.v - irisT2.xbar) %*% solve(iris.Sp) %*% (iris.newObs.v - irisT2.xbar)
+discVal3 = t(iris.newObs.v - irisT3.xbar) %*% solve(iris.Sp) %*% (iris.newObs.v - irisT3.xbar)
+
+discVal1
+discVal2
+discVal3
+
+iris.newObs.ldaPred = predict(iris.lda,newdata=iris.newObs)
+iris.newObs.ldaPred
+```
+
+6. Suppose we have a new wine that has the following values for the six variables: Alcohol Content = 14.0, Malic Acid = 5.0, Ash = 2.0, Magnesium = 120.0, Total Phenols = 3.0, Flavonoids = 4.0.  Use LDA to predict which of the three varieties this new wine belongs to.  
+    
+    The lda() model predicts the new wine is of variety 1.  
+    
+```{r}
+colnames(wine)
+wine.newObs = data.frame("Alcohol" = 14.0,
+                         "MalicAcid" = 5.0,
+                         "Ash" = 2.0,
+                         "Magnesium" = 120.0,
+                         "TotalPhenols" = 3.0,
+                         "Flavonoids" = 4.0)
+wine.newObs.v = as.numeric(wine.newObs)
+wine.lda.pred = predict(wine.lda, newdata = wine.newObs)
+wine.lda.pred
+```
+
+# 6.	Quadratic Discriminant Analysis  
+
+```{r}
+qdiscT1 = t(iris.newObs.v - irisT1.xbar) %*% solve(irisT1.cov) %*%
+  (iris.newObs.v - irisT1.xbar)
+qdiscT2 = t(iris.newObs.v - irisT2.xbar) %*% solve(irisT2.cov) %*%
+  (iris.newObs.v - irisT2.xbar)
+qdiscT3 = t(iris.newObs.v - irisT3.xbar) %*% solve(irisT3.cov) %*%
+  (iris.newObs.v - irisT3.xbar)
+c(qdiscT1, qdiscT2, qdiscT3)
+
+priorVals = c(1/3, 1/3, 1/3)
+
+qdiscT1.mod = -2 * log(priorVals[1]) + log(det(irisT1.cov)) + qdiscT1
+qdiscT2.mod = -2 * log(priorVals[2]) + log(det(irisT2.cov)) + qdiscT2
+qdiscT3.mod = -2 * log(priorVals[3]) + log(det(irisT3.cov)) + qdiscT3
+c(qdiscT1.mod, qdiscT2.mod, qdiscT3.mod)
+
+iris.qda= qda(Type ~ Sepal.Length + Sepal.Width + Petal.Length
+               + Petal.Width, data=iris)
+iris.newObs = data.frame("Sepal.Length"=7.5,
+                         "Sepal.Width" = 4.0,
+                         "Petal.Length" = 5.0,
+                         "Petal.Width" = 1.0)
+iris.newObs.qdaPred = predict(iris.qda, newdata = iris.newObs)
+iris.newObs.qdaPred
+```
+
+7. Again, suppose we have a new wine that has the following values for the six variables: Alcohol Content = 14.0, Malic Acid = 5.0, Ash = 2.0, Magnesium = 120.0, Total Phenols = 3.0, Flavonoids = 4.0.  Compute the unmodified QDA distances between this new wine and the sample mean of each variety. What are the distances for each variety? Which group would you assign this wine to?   
+    
+    According to the below distances from the 3 group means, I would classify the new observation as variety 2.  
+    
+```{r}
+qdiscV1 = t(wine.newObs.v - winev1.xbar) %*% solve(winev1.cov) %*%
+  (wine.newObs.v - winev1.xbar)
+qdiscV2 = t(wine.newObs.v - winev2.xbar) %*% solve(winev2.cov) %*%
+  (wine.newObs.v - winev2.xbar)
+qdiscV3 = t(wine.newObs.v - winev3.xbar) %*% solve(winev3.cov) %*%
+  (wine.newObs.v - winev3.xbar)
+
+rbind(c("Variety 1", "Variety 2", "Variety 3"),c(qdiscV1, qdiscV2, qdiscV3))
+
+
+```
+
+8. Use the ‘qda()’ and ‘predict.qda()’ functions to predict which group this new wine belongs to (using the modified QDA distances which assume MVN and priors).  What class is this new wine assigned to?    
+    
+    The predict.qda() function classifies the new observation as variety 2.  
+    
+```{r}
+wine.qda = qda(Variety ~ Alcohol + MalicAcid + Ash + Magnesium +
+                 TotalPhenols + Flavonoids, data = wine)
+wine.qda.pred = predict(wine.qda, newdata = wine.newObs)
+wine.qda.pred
+```
+
+# k-Nearest Neighbors (kNN)  
+  
+```{r}
+head(vert)
+nrow(vert)
+ntrain = 200
+set.seed(1234567)
+train.rows = sample(1:310, ntrain, replace = F)
+train.rows = sort(train.rows)
+
+
+vert.train = vert[train.rows,]
+vert.test = vert[-train.rows,]
+dim(vert.train)
+dim(vert.test)
+
+head(vert.train)
+head(vert.test)
+
+knnRslt.5 = knn(vert.train[,1:6], vert.test[,1:6],
+                cl=vert.train$ClassLabel, k=5)
+knnRslt.5
+
+table(vert.test$ClassLabel, knnRslt.5)
+sum(vert.test$ClassLabel != knnRslt.5)/length(knnRslt.5)
+mean(vert.test$ClassLabel != knnRslt.5)
+
+```
+9. Set a random seed of 12345, and then randomly partition the wine data into a training set of 90 observations and a test set of 45 observations. Display the first six rows of your training set and the first six rows of your test set.  
+    
+    The first 6 rows of the training and test sets are below.      
+    
+```{r}
+set.seed(12345)
+train.rows = sample(1:nrow(wine), 90)
+train.rows = sort(train.rows)
+wine.train = wine[train.rows,]
+wine.test = wine[-train.rows,]
+dim(wine.train)
+dim(wine.test)
+
+head(wine.train)
+head(wine.test)
+
+
+```
+
+10. Fit a kNN classifier to the wine data using k = 5 neighbors.  What is your estimated classification error on the test data?  
+    
+    For k == 5, there is ~15.6% error.  
+
+```{r}
+wine.knn = knn(wine.train[,1:6], wine.test[,1:6], cl=wine.train$Variety, k = 5)
+mean(wine.test$Variety != wine.knn)
+```
+  
+  
+11. Fit a kNN classifier to the wine data using k = 15 neighbors.  What is your estimated classification error on the test data?  
+    
+    For k == 15, there is ~33.3% error rate.  
+    
+```{r}
+wine.knn = knn(wine.train[,1:6], wine.test[,1:6], cl=wine.train$Variety, k = 15)
+mean(wine.test$Variety != wine.knn)
+```
+  
+# Classification and Regression Trees (CART)  
+  
+```{r}
+vert.tree = rpart(ClassLabel ~ PelvicIncidence + PelvicTilt + 
+                    LumbarLordosisAngle + SacralSlope +
+                    PelvicRadius + GradeSpond,
+                  control = rpart.control(minsplit = 30,
+                                          minbucket = 5),
+                  data = vert.train)
+vert.tree
+summary(vert.tree)
+
+prp(vert.tree, type=1,digits=4,extra=1,varlen = 0)
+
+vert.tree.testPred= predict(vert.tree, vert.test[,1:6])
+head(vert.tree.testPred)
+
+vert.tree.testPredC1 = predict(vert.tree, vert.test[,1:6],
+                               type = "class")
+vert.tree.testPredC1[1:6]
+
+table(vert.test$ClassLabel, vert.tree.testPredC1)
+mean(vert.test$ClassLabel != vert.tree.testPredC1)
+```
+
+
+12. Using the same training and test set partition of the wine data, fit a CART classification model to the training wine data.  You can choose the tree fitting criteria using the ‘control=’ argument.  What is the best (lowest) classification error you can obtain on the test set? Give the code and display the tree that achieves this lowest error rate.  
+    
+    The best error obtained was ~13%, using a minsplit of 10 and minbucket of 2. The tree is displayed below.  
+  
+```{r}
+#30, 5
+wine.train$Variety = as.factor(wine.train$Variety) 
+wine.tree = rpart(Variety ~ Alcohol + MalicAcid + Ash + Magnesium +
+                 TotalPhenols + Flavonoids,
+                  control = rpart.control(minsplit = 30,
+                                          minbucket = 5),
+                  data = wine.train)
+wine.test$Variety = as.factor(wine.test$Variety)
+wine.tree.testPred= predict(wine.tree, wine.test[,1:6])
+wine.tree.testPredC1 = predict(wine.tree, wine.test[,1:6],type = "class")
+wine.tree.testPredC1[1:6]
+
+table(wine.test$Variety, wine.tree.testPredC1)
+mean(wine.test$Variety != wine.tree.testPredC1)
+
+#10, 2
+wine.tree.2 = rpart(Variety ~ Alcohol + MalicAcid + Ash + Magnesium +
+                 TotalPhenols + Flavonoids,
+                  control = rpart.control(minsplit = 10,
+                                          minbucket = 2),
+                  data = wine.train)
+wine.tree.testPred.2 = predict(wine.tree.2, wine.test[,1:6])
+wine.tree.testPredC1.2 = predict(wine.tree.2, wine.test[,1:6],type = "class")
+mean(wine.test$Variety != wine.tree.testPredC1.2)
+
+#2, 1
+wine.tree.3 = rpart(Variety ~ Alcohol + MalicAcid + Ash + Magnesium +
+                 TotalPhenols + Flavonoids,
+                  control = rpart.control(minsplit = 2,
+                                          minbucket = 1),
+                  data = wine.train)
+wine.tree.testPred.3 = predict(wine.tree.3, wine.test[,1:6])
+wine.tree.testPredC1.3 = predict(wine.tree.3, wine.test[,1:6],type = "class")
+mean(wine.test$Variety != wine.tree.testPredC1.3)
+
+prp(wine.tree.2, type=1, digits=4, extra=1, varlen=0)
+```
+
+    
+## Appendix: R code
+```{r ref.label=knitr::all_labels(), echo = T, eval = F}
+```

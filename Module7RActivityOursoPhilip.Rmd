@@ -1,0 +1,276 @@
+---
+title: "ST558: Module7 R Activity"
+author: "Philip Ourso"
+date: "November 16, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE, message=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, warning=FALSE, message=FALSE, echo=FALSE}
+#library(tidyverse)
+#library(gridExtra)
+#library(corrplot)
+
+#library(MASS)
+#library(class)
+#library(rpart)
+#library(rpart.plot)
+#library(CCA)
+```
+
+### Set working dir and read in data  
+
+```{r}
+setwd("C:/Users/pourso/Google Drive/School/st558")
+nyse = read.csv('NYSEData.csv')
+names(nyse)  = c("Shell", "Exxon", "JPM", "Citi", "WF")
+```
+  
+1. Read in ‘Seeds3Data.csv’, which contains measurements on 7 geometric variables describing the shape and size of wheat kernels from a particular wheat variety.  Save this data as ‘seeds’, and display the first six rows of the dataset.    
+  
+    The first 6 rows are displayed below.    
+    
+```{r}
+seeds = read.csv('Seeds3Data.csv')
+head(seeds,6)
+```
+
+2. Make a pairs plot of the 7 variables in the ‘seeds’ data set.   Based on these plots, does it look like the assumption of multivariate normality is at least remotely reasonable?  That is, are the pairwise scatterplots roughly elliptical (or spherical) with greatest concentration of points in the middle?  
+    
+    The pairwise scatterplots are created below. Many plots exhibit a roughly spherical mass of observations, concentrated in the middle. Several exhibit a more highly correlated, elongated shape, so depending on the robustness to deviations from multivariate normality, its a somewhat reasonable assumption.      
+    
+```{r}
+pairs(seeds)
+```
+  
+### Performing principal components factor analysis by hand  
+
+```{r}
+#compute correlation matrix
+nyse.cor= cor(nyse)
+
+#compute eigendecomposition
+nyse.eig = eigen((nyse.cor))
+nyse.eig
+
+#compute loadings: eigenvectors times eigendecomposition
+load.pcfa = nyse.eig$vec %*% diag(sqrt(nyse.eig$values))
+load.pcfa
+
+#first loadings vector
+nyse.eig$vec[,1] * sqrt(nyse.eig$val[1])
+#second loadings vector
+nyse.eig$vec[,2] * sqrt(nyse.eig$val[2])
+
+#calculate uniquenesses
+m = 1
+uni.pcfa1 = diag(nyse.cor-load.pcfa[,1:m] %*%
+                   t(load.pcfa[,1:m]))
+uni.pcfa1
+
+#fitted correlation matrix
+fit.pcfa1 = load.pcfa[,1:m] %*% t(load.pcfa[,1:m]) + diag(uni.pcfa1)
+fit.pcfa1
+
+#compute residual matrix
+res.pcfa1 = nyse.cor - fit.pcfa1
+res.pcfa1
+
+#2 factor pcfa
+m = 2
+uni.pcfa2 = diag(nyse.cor-load.pcfa[,1:m] %*%
+                   t(load.pcfa[,1:m]))
+uni.pcfa2
+
+#fitted correlation matrix
+fit.pcfa2 = load.pcfa[,1:m] %*% t(load.pcfa[,1:m]) + diag(uni.pcfa2)
+fit.pcfa2
+
+#compute residual matrix
+res.pcfa2 = nyse.cor - fit.pcfa2
+res.pcfa2
+
+```
+
+3. Calculate and report the loadings matrix for the principal components factor analysis solution using the correlation matrix of the ‘seeds’ data (that is, using the standardized data).  
+    
+    The loadings are displayed below.      
+    
+```{r}
+#corr matrix
+seeds.cor = cor(seeds)
+#eigendecomposition
+seeds.eig = eigen(seeds.cor)
+#loadings matrix
+seeds.load1 = seeds.eig$vec %*% diag(sqrt(seeds.eig$val))
+seeds.load1
+```
+
+4. Examine the first three columns of the loadings matrix: can you come up with an interpretation for these first three factors?  
+    
+    The first three loadings vectors are displayed below. The first vector appears to be a general "size" factor, with larger values for size-based attributes. The second vector appears to contrast area and compactness against length, perhaps as a "shape" factor. The last has a major contribution from Asymmetry, and minor contributions from all other variables, and so can be considered a "Symmetry" factor.      
+
+```{r}
+cbind(names(seeds), seeds.load1[,1:3])
+
+```
+
+5. Calculate the fitted correlation matrix for the three-factor model, and find the residual matrix. Does it look like the principal components three-factor model captures most of the structure in the correlation matrix?  
+  
+    The residual matrix consists mostly of small values, and appears to capture most of the structure of the correlation matrix.      
+  
+```{r}
+#compute uniqueness diag matrix
+seeds.uni = diag(seeds.cor - seeds.load1[,1:3] %*% t(seeds.load1[,1:3]))
+
+#compute fitted matrix
+seeds.fit = seeds.load1[,1:3] %*% t(seeds.load1[,1:3]) + diag(seeds.uni)
+seeds.fit
+
+
+seeds.res = seeds.cor - seeds.fit
+seeds.res
+```
+
+### Performing maximum likelihood factor analysis using a built-in function
+  
+```{r}
+nyse.mlfa1 = factanal(x = nyse, f = 1, rotation = "none")
+nyse.mlfa1
+nyse.mlfa1$load
+
+nyse.mlfa1$loadings[1:5,1]
+nyse.mlfa1$uniquenesses
+
+#fit
+fit.mle1 = nyse.mlfa1$loadings %*% t(nyse.mlfa1$loadings) + diag(nyse.mlfa1$uniquenesses)
+fit.mle1
+
+#residuals
+res.mle1 = nyse.cor - fit.mle1
+res.mle1
+
+nyse.mlfa2 = factanal(x = nyse, f = 2, rotation = "none")
+nyse.mlfa2
+
+fit.mle2 = nyse.mlfa2$loadings %*% t(nyse.mlfa2$loadings) + diag(nyse.mlfa2$uniquenesses)
+fit.mle2
+res.mle2 = nyse.cor - fit.mle2
+res.mle2
+
+n = nrow(nyse)
+p = ncol(nyse)
+m = 2
+stat = (n-1-(2*p + 4*m + 5)/6) * log(det(fit.mle2)/det(nyse.cor))
+pval= 1 - pchisq(stat, ((p-m)^2 - p - m)/2)
+stat
+pval
+
+nyse.mlfa2$STATISTIC
+nyse.mlfa2$PVAL
+```
+
+6. Use the ‘factanal()’ function to perform maximum likelihood factor analysis on the ‘seeds’ data with m = 3 factors, with no rotation of the factors.  Display the resulting object.  
+    
+    The maximum likelihood factor analysis model parameters are displayed below.  
+    
+```{r}
+seeds.mlfa = factanal(x = seeds, f = 3, rotation = "none")
+seeds.mlfa
+```
+
+7. What is the result of a hypothesis test that m = 3 factors is sufficient to explain the correlation structure in this data? Would you reject or fail to reject this null hypothesis?   
+    
+    The p-value is nearly zero, so I would reject the null hypothesis that 3 factors are sufficient to describe the correlation in this data.  
+    
+8. Examine the three columns of the loadings matrix: can you come up with an interpretation for these first three factors? Do these factors seem similar to the factors you found using the principal components solution?    
+    
+    The first factor appears to be a general "size" factor. The second factor contrasts area, compactness and width with length and hence is probably a general "shape" factor. The last factor contrasts perimeter with most other variables, and is difficult to interpret. The first 2 factors, and my interpretations, are similar to the first 2 factors found via the principal components approach. The approaches differ in the third loadings vectors.       
+    
+```{r}
+seeds.mlfa$loadings[1:7,1:3]
+cbind(names(seeds), seeds.load1[,1:3])
+
+```
+
+9. Calculate the fitted correlation matrix for the three-factor model, and find the residual matrix. Does it look like the maximum likelihood three-factor model captures most of the structure in the correlation matrix?  
+    
+    The residuals are quite small and hence it appears that most of the structure of the correlation matrix is captured.        
+    
+```{r}
+seeds.fit.mlfa = seeds.mlfa$loadings[1:7,1:3] %*% t(seeds.mlfa$loadings[1:7,1:3]) + diag(seeds.mlfa$uniquenesses)
+
+seed.res.mlfa = seeds.cor - seeds.fit.mlfa
+seed.res.mlfa
+```
+
+10. Does it look like the principal components three-factor solution or the maximum likelihood three-factor solution fits the observed correlation matrix better?  
+    
+    The maximum likelihood model looks like its marginally better than the principal components model.  
+
+```{r}
+abs(seeds.res) - abs(seed.res.mlfa)
+
+```
+  
+### Performing maximum likelihood factor analysis w/ varimax roration, and calculating scores  
+  
+```{r}
+nyse.mlfa2.rot = factanal(x = nyse, factors = 2, rotation = "varimax", 
+                        scores = "regression")
+nyse.mlfa2.rot
+nyse.mlfa2.rot$load
+
+nyse.mlfa2$load
+
+apply(nyse.mlfa2.rot$loadings[,1:2]^2, 2, var)
+apply(nyse.mlfa2$loadings[,1:2]^2, 2, var)
+
+nyse.mlfa2.rot$scores[1:10,]
+scale(nyse, center=T, scale=F)[1:10,]
+```
+
+11. Use the ‘factanal()’ function to perform maximum likelihood factor analysis on the ‘seeds’ data with m = 3 factors, with the varimax  rotation of the factors.  Display the resulting object, and compare the factors with rotation to the factors without rotation.  Are the rotated factors substantially easier to interpret?  
+    
+    The rotated factors exhibit more spread, as expected. The second and third factors appear to be "size" and "length" factors, and are easier to interpret than the unrotated factors. The first factor, however, is more difficult to interpret.    
+    
+```{r}
+seeds.mlfa.rot = factanal(x = seeds, f = 3, rotation = "varimax")
+seeds.mlfa.rot
+
+seeds.mlfa.rot$loadings
+seeds.mlfa$loadings
+
+apply(seeds.mlfa.rot$loadings[,1:2]^2, 2, var)
+apply(seeds.mlfa$loadings[,1:2]^2, 2, var)
+
+```
+
+12. Use the ‘factanal()’ function to perform maximum likelihood factor analysis on the ‘seeds’ data with m = 3 factors, with the varimax  rotation of the factors, and compute the scores for the individual observations using hte ‘regression’ method. 
+
+Display the scores for the 10th observation (row 10), and by examining how each factor affects the variables ‘Compactness’ and ‘GrooveLength’, speculate how the 10th observation measurements for ‘Compactness’ and ‘GrooveLength’ will compare to the sample average measurements for these variables based on the factor scores.
+
+Now calculate the centered variable values for the 10th observation, and see if speculations were accurate.
+    
+    The scores for observation 10 are significantly negative for factor 1, slightly negative for factor 2 and significantly positive for factor 3. Factor 1 has a high loading for Compactness, factor 2 has a smaller, slightly negative loading and Factor 3 has no loading at all, so I'd expect that observation 10 would have lower than average compactness measurements.  
+    For GrooveLength, factor 1 is slightly negative, while factors 2 and 3 are moderately positive. I would expect a higher than average asymmetry measurement for observation 10.  
+    These expectations are confirmed by viewing the centered variable values.  
+  
+```{r}
+seeds.mlfa.rot = factanal(x = seeds, f = 3, rotation = "varimax", 
+                          scores = "regression")
+seeds.mlfa.rot$loadings
+seeds.mlfa.rot$scores[10,]
+
+
+scale(seeds, center=T, scale=F)[10,]
+
+```
+
+    
+### Appendix: R code
+```{r ref.label=knitr::all_labels(), echo = T, eval = F}
+```

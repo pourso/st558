@@ -1,0 +1,155 @@
+---
+title: 'ST558: Module 1 HW'
+author: "Philip Ourso"
+date: "October 6, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, warning=FALSE, echo=FALSE}
+library(tidyverse)
+```
+
+## Iris flower dataset
+```{r}
+df.iris = read.csv("IrisData.csv")
+
+head(df.iris)
+```
+### a. Calculate the sample mean vector for the first four variables  
+```{r}
+apply(df.iris[,1:4],2,mean)
+```
+
+### b. Calculate the sample covariance matrix for the first four variables:  
+```{r}
+var(df.iris$Sepal.Length)
+cov.iris = cov(df.iris[,1:4],use = "pairwise.complete.obs")
+cov.iris
+cov.iris[8]/2.54
+
+df.iris.mod = df.iris
+df.iris.mod$Petal.Width = df.iris.mod$Petal.Width/2.54
+cov.iris.mod = cov(df.iris.mod[,1:4],use = "pairwise.complete.obs")
+cov.iris.mod
+
+```
+    i. What is the variance of Sepal Length?  
+        0.686  
+    ii. What is the covariance between Sepal Width and Petal Width?  
+        -0.122    
+    iii. If we measured variable Petal Width in inches instead of centimeters but kept all the other variables in the original cm units, what would the new covariance between variables Sepal Width and Petal Width be?  
+        -0.0479  
+        The covariance changes with scaled values.  
+        
+###c. Calulate the sample correlation matrix for the first four variables:  
+```{r}
+cor.iris = cor(df.iris[,1:4],use = "pairwise.complete.obs")
+cor.iris
+
+cor.iris.mod = cor(df.iris.mod[,1:4],use = "pairwise.complete.obs")
+cor.iris.mod
+
+```
+    i. What is the correlation between Sepal Width and Petal Width?  
+        -0.366  
+    ii. If we measured variable Petal Width in inches instead of centimeters but kept all the other variables in the original cm units, what would the new correlation between variables Sepal Width and Petal Width be?  
+        -0.366 
+        The correlation should remain unchanged, as correlation is robust to scaling. Thisis in fact what we see.  
+  
+###d. Construct all of the pairwise scatterplot using the ‘pairs()’ function in R.  Color the points to correspond to the different iris varieties. Describe what you see: 
+```{r}
+pairs(df.iris[,1:4],col=rainbow(3)[df.iris$Type])
+
+ggplot(df.iris, aes(x = df.iris$Petal.Width, 
+                    y = df.iris$Type, 
+                    color = df.iris$Type)) + 
+  geom_jitter() + 
+  theme_bw()
+
+for(j in 1:4){
+  p = ggplot(df.iris, aes(y = df.iris[,j], 
+                    x = df.iris$Type, 
+                    color = df.iris$Type)) + 
+    geom_jitter() + 
+    theme_bw() + 
+    labs(x = colnames(df.iris)[j])
+  plot(p)
+}
+```
+    i. Are there distinct groups of flowers?    
+        Yes, the types of flowers are fairly distinct, particularly when viewing the three pairwise scatterplots that include Petal Length.  
+    ii. If you only had measured Petal Width, do you think you could do a good job of predicting which species a flower belongs to?  
+        Type 1 flowers could be predicted fairly easily using only Petal Width, but it would be harder to distinguish Types 2 and 3, given the overlap between sample observations.  
+    iii. If you could only use two of these four variables to create a model for classifying which species an observation comes from (that is, a predictive model), which two variables do you think would be most useful, and why?  
+        
+###e. Linear Combination  
+  	Now I want to come up with a single number that summarizes these four variables, so I am going to construct a linear combination of the variables Sepal Length, Sepal Width, Petal Length, and Petal Width.  I rather arbitrarily decide that I will try the following linear combination:  
+  	
+    Z=0.3(Sepal Length)+0.1(Sepal Width)+
+                    0.4(Petal Length)+0.2(Petal Width )  
+
+
+    Calculate this linear combination Z_i for each observation i=1,2,…,150, and then find the sample mean of these values:  
+    
+    Z ̅=1/150 ∑_(i=1)^150▒Z_i 
+
+    Compare this result (Z ̅) to the same linear combination of the sample mean vector (X ̅_1,X ̅_2,X ̅_3,X ̅_4) that you computed in part a.:  
+
+    0.3X ̅_1+0.1X ̅_2+0.4X ̅_3+0.2X ̅_4
+    
+    What do you notice? Can you speculate as to why this might be the case in general?  That is, if Z=a_1 X_1+a_2 X_2+⋯+a_p X_p, can you express Z ̅ in terms of (X ̅_1,X ̅_2,…,X ̅_p)? 
+    
+# Cubit dataset  
+```{r}
+df.cub = read.csv("CubitData.csv")
+
+head(df.cub)
+```
+### a. Calculate the sample mean vector for this data.  
+```{r}
+apply(df.cub,2,mean)
+```
+
+### b. Calculate the sample covariance matrix for this data.  
+```{r}
+cov.cub = cov(df.cub,use = "pairwise.complete.obs")
+cov.cub
+
+```
+
+### c. Find the eigendecomposition for this data.  
+```{r}
+eig.cub = eigen(cov.cub)
+eig.cub
+```
+
+### d. What is the eigenvector corresponding to the largest eigenvalue?  
+```{r}
+eig.cub$vectors[,which.max(eig.cub$values)]
+```
+
+###e. Make a scatter plot for this data: cubit (y-axis) vs. height (x-axis).  Add this eigenvector corresponding to the largest eigenvalue to the plot as a vector (starting from the sample mean and pointing in the direction of that eigenvector) using the ‘lines()’ function.  That is, if the sample mean vector is (x ̅_1,x ̅_2), and the first eigenvector is  (v_1,v_2), you should plot a line from (x ̅_1,x ̅_2) to (x ̅_1,+v_1,x ̅_2+v_2). Describe how the direction of this eigenvector relates to the cloud of data points.  
+
+    The line plotted below appears to describe a regression line and indicates the direction of the maxumum variance of the points plotted. It appears to overlap with a linear regression line of best fit  
+
+```{r}
+sample.mean = apply(df.cub,2,mean)
+#ggplot(df.cub, aes(x = df.cub$height, y = #df.cub$cubit)) + 
+#  geom_point() + 
+#  theme_bw() + 
+#  geom_segment(aes(x = sample.mean[1],
+#                   y = sample.mean[2],
+#                   xend = sample.mean[1] + #eig.cub$vectors[,which.max(eig.cub$values)][1],
+#                  yend = sample.mean[2] + #eig.cub$vectors[,which.max(eig.cub$values)][2],
+#                  color = 'red'))
+mat.eig = rbind(sample.mean, sample.mean + eig.cub$vectors[,which.max(eig.cub$values)])
+plot(x = df.cub$height, y = df.cub$cubit)
+lines(x = mat.eig, 
+      col = 'red', lwd = 3)
+abline(lm(cubit~height, data = df.cub), col = 'blue')
+
+```

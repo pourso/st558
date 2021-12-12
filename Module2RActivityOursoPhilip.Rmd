@@ -1,0 +1,237 @@
+---
+title: "ST558: Module2 R Activity"
+author: "Philip Ourso"
+date: "October 11, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, warning=FALSE, message=FALSE, echo=FALSE}
+library(tidyverse)
+library(gridExtra)
+library(corrplot)
+```
+
+# Create vectors in R using c()  
+  
+1. Create the vector [1  4  9  12] using the ‘c()’ function, and name it ‘newVec1’.  
+    The vector is created and displayed below.    
+    
+```{r}
+newVec1 = c(1, 4, 9, 12)
+newVec1
+```
+
+2. Create another object:  
+    > newVec2 <- (1:4)^2  
+    Have R check whether newVec1 and newVec2 are identical.  
+    
+    The vector is created and compared below.    
+    
+```{r}
+newVec2 = c(1:4)^2
+all(newVec2 == newVec1)
+```
+
+# Create matrices in R using cbind(), rbind(), and matrix()  
+
+3. Use the ‘cbind()’ command to create the following matrix and name it ‘newMat1’:  
+    
+    The matrix is created below.  
+```{r}
+newMat1 = cbind(
+  c(1, 4, 2),
+  c(0, 7, -3),
+  c(5, 2, 1)
+)
+newMat1
+```
+
+4. Use the ‘rbind()’ command to create the following matrix and name it ‘newMat2’:  
+    
+    The matrix is created below.  
+```{r}
+newMat2 = rbind(
+  c(1, 1, 2),
+  c(4, 7, 2),
+  c(5, -3, -1)
+)
+newMat2
+```
+
+5. Compare ‘newMat1’ and ‘newMat2’ to identify which positions are not equal.  
+  
+    The element-wise comparison is below.  
+  
+```{r}
+newMat1 == newMat2
+```
+
+6. Use the ‘matrix()’ command to create the following matrix and name it ‘newMat3’.  
+  
+    The matrix is created below.  
+    
+```{r}
+newMat3 = matrix(c(1, 2, 3, 4, 5, 6), nrow = 3, ncol = 2)
+newMat3
+```
+
+# Produce the transpose of a matrix using the t() command
+
+7. Compare ‘newMat1’ to the transpose of ‘newMat2’ to identify which positions are not equal.  
+    
+    The element-wise comparison is shown below.  
+    
+```{r}    
+newMat1 == t(newMat2)
+```
+
+8. How could you use R to check whether a matrix is symmetric? Give code for checking whether ‘newMat2’ is symmetric.    
+    
+    A symmetric matrix is equal to its transposition, so a comparison of all elements of a matrix to its transposition would indicate symmetry.  
+    
+```{r}
+all(newMat2 == t(newMat2))
+```
+
+# Extract the diagonal elements using diag().
+
+9. Create a diagonal matrix named ‘diagMat1’ with diagonal entries equal to the diagonal entries of ‘newMat1’.  
+    
+    The diagonal matrix is created below.  
+    
+```{r}
+diagMat1 = diag(c(diag(newMat1)))
+diagMat1
+```
+
+10. Create the (5 x 5) identity matrix and name it ‘ident5’.  
+    
+    The identity matrix is created below.  
+    
+```{r}
+ident5 = diag(5)
+ident5
+```
+
+# Perform matrix addition  
+    
+11. Calculate the sum of ‘newMat1’ and ‘newMat2’.  
+    
+    The sum is below.  
+    
+```{r}
+newMat1 + newMat2
+```
+
+# Multiply a matrix by a constant  
+
+11. Multiply ‘newMat3’ by 7.  
+    
+    The product is below.   
+   
+```{r}
+newMat3 * 7
+```
+
+# Perform matrix multiplication
+
+12. Create the (3 x 3) identity matrix I3, and name it ‘ident3’.  Perform matrix multiplication to find the product I3(newMat3).   
+    
+    The product is below.  
+    
+```{r}
+ident3 = diag(3)
+ident3 %*% newMat3
+```
+
+13. What happens when you try to perform matrix multiplication to find the product newMat3(I3)? Why is that?  
+    
+    When the product is attempted, R indicates that the arguments have non-conformable dimensions. newMat3 has 2 columns, but ident3 has 3 rows, and hence matrix multiplication can't be performed.    
+    
+```{r}
+dim(newMat3)
+dim(ident3)
+#newMat3 %*% ident3
+
+```
+
+# Calculate the inverse of a matrix  
+
+14. Find the matrix inverse of ‘newMat1’.  Name this matrix ‘newMat1.inv’ and report its value.  
+    
+    The inverse of the matrix is below.  
+    
+```{r}
+newMat1.inv = solve(newMat1)
+newMat1.inv
+```
+    
+15. Demonstrate that the matrix product of ‘newMat1’ and ‘newMat1.inv’ is the (3 x 3) identity matrix, no matter which order you perform the multiplication.  
+    
+    Both products produce the identity matrix.  
+    
+```{r}
+round(newMat1 %*% newMat1.inv)
+
+round(newMat1.inv %*% newMat1)
+```
+
+# Calculate the determinant and trace of a matrix.  
+
+16. What happens if you try to find the determinant of a matrix that is not square? Demonstrate an example.  
+    
+    The below example produces an error in which it is noted that the argument matrix is not square.   
+   
+```{r}
+newMat9 = cbind(c(1,2,3), c(4,5,6))
+#det(newMat9)
+```
+
+17. What happens if you try to find the trace of a matrix that is not square? Demonstrate an example.  
+    
+    In this case, no error message is produced, and a row is dropped to make a square matrix, with a value returned for the trace.  
+    
+```{r}
+newMat9
+diag(newMat9)
+sum(diag(newMat9))
+```
+    
+18. Calculate the determinant of ‘newMat2’.  
+    
+    The determinant is produced by the below code.  
+
+```{r}
+det(newMat2)
+```
+
+19. Calculate the trace of ‘newMat2’.  
+    
+    The trace is produced by the below code.  
+
+```{r}
+sum(diag(newMat2))
+```
+
+# Calculate the eigendecomposition of a square matrix.  
+
+20. Create the following matrix and name it ‘newMat2’
+Find the eigendecomposition of this matrix.  What is the eigenvector corresponding to the smallest eigenvalue?  
+    
+    The below code produces the eigenvector corresponding to the smallest eigenvalue via the which.min() function.   
+   
+```{r}
+newMat2 = cbind(c(6.8,2.4,0), c(2.4,8.2,0), c(0,0,0.5))
+newMat2.eig = eigen(newMat2)
+#newMat2.eig$values
+#newMat2.eig$vectors
+newMat2.eig$vectors[,which.min(newMat2.eig$values)]
+```
+
+## Appendix: R code
+```{r ref.label=knitr::all_labels(), echo = T, eval = F}
+```

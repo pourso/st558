@@ -1,0 +1,254 @@
+---
+title: 'ST558: HW3'
+author: "Philip Ourso"
+date: "November 3, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, warning=FALSE, echo=FALSE, message=FALSE}
+library(tidyverse)
+library(ICSNP)
+library(rrcov)
+
+library(MASS)
+library(class)
+library(rpart)
+library(rpart.plot)
+```
+
+## 1. Glass dataset
+```{r}
+#read data sets
+glass.train = read.csv("GlassDataTrain.csv")
+glass.test = read.csv("GlassDataTest.csv")
+
+head(glass.train)
+```
+### a. Fit a linear discriminant analysis model to the training data, and predict the source (1 = FB, 2 = NB, 3 = OT) for each of the observations in the test data. Report the classification error rate on the test data.  
+
+    The classification error rate achieved is ~25.6%.    
+    
+```{r}
+#fit LDA model
+glass.lda = lda(NewType ~ RI + Na + Al + Si + Ca, data = glass.train)
+glass.lda
+#predict class
+glass.lda.pred = predict(glass.lda, newdata = glass.test[,1:5])
+glass.lda.pred
+#calc error rate
+mean(glass.lda.pred$class != glass.test$NewType)
+```
+
+### b. Fit a quadratic discriminant analysis model to the training data, and predict the source (1 = FB, 2 = NB, 3 = OT) for each of the observations in the test data. Report the classification error rate on the test data.  
+
+    The classification error rate achieved is ~40.6%.  
+    
+```{r}
+#fit QDA model
+glass.qda = qda(NewType ~ RI + Na + Al + Si + Ca, data = glass.train)
+glass.qda
+#predict class
+glass.qda.pred = predict(glass.qda, newdata = glass.test[,1:5])
+glass.qda.pred
+#calc error rate
+mean(glass.qda.pred$class != glass.test$NewType)
+
+```
+### c. Fit a k-Nearest Neighbors classification model, and report the classification error rate on the test data  
+    
+    The achieved error rate is ~28.1%.  
+    
+```{r}
+glass.knn = knn(glass.train[,1:5], glass.test[,1:5],
+                cl=glass.train$NewType, k=5)
+glass.knn
+mean(glass.test$NewType != glass.knn)
+```
+### d. Fit a CART classification model, with minimum node size of 10 to split and a minimum leaf size of 5.  Predict the source (1 = FB, 2 = NB, 3 = OT) for each of the observations in the test data, and report the classification error rate on the test set    
+    
+    The achieved error rate is ~28.1%.  
+    
+```{r}
+glass.train.fac = glass.train
+glass.train.fac$NewType = as.factor(glass.train.fac$NewType)
+glass.tree = rpart(NewType ~ RI + Na + Al + Si + Ca,
+                   control = rpart.control(
+                     minsplit=10, minbucket = 5
+                   ),
+                   data = glass.train.fac)
+prp(glass.tree, type=1,digits=4,extra=1,varlen=0)
+
+glass.test.fac = glass.test
+glass.test.fac$NewType = as.factor(glass.test.fac$NewType)
+
+glass.tree.pred = predict(glass.tree,glass.test.fac[,1:5],type="class")
+head(glass.tree.pred)
+mean(glass.test.fac$NewType != glass.knn)
+```
+### e. Which classification approach do you like best for this data, and why?  
+    
+    While the CART model is easy to interpret, the LDA model achieves the lower classification error on the test set, and hence is preferable for this data.  
+    
+    
+## 2. Diabetes study  
+```{r}
+library(CCA)
+diab.s11 = cbind(c(1106.0, 396.7, 108.4),
+                 c(396.7, 2382.0, 1143.0),
+                 c(108.4, 1143.0, 2136.0))
+diab.s12 = cbind(c(0.79, -0.21, 2.19),
+                 c(26.23, -23.96, -20.84))
+diab.s22 = cbind(c(0.02, 0.22),
+                 c(0.22, 70.56))
+
+diab.S = cbind(rbind(diab.s11,t(diab.s12)),rbind(diab.s12,diab.s22))
+
+
+#3 compute square-root matrix of S11 and S22
+sig11.eig = eigen(diab.s11)
+sig11.5 = sig11.eig$vec %*% diag(sqrt(sig11.eig$val)) %*%
+  t(sig11.eig$vec)
+
+sig22.eig = eigen(diab.s22)
+sig22.5 = sig22.eig$vec %*% diag(sqrt(sig22.eig$val)) %*%
+  t(sig22.eig$vec)
+
+#4 find matrices A1 and A2
+A1 = solve(sig11.5) %*% diab.s12 %*% solve(diab.s22) %*%
+  t(diab.s12) %*% solve(sig11.5)
+A2 = solve(sig22.5) %*% t(diab.s12) %*% solve(diab.s11) %*%
+  diab.s12 %*% solve(sig22.5)
+
+#5 find eigendecompositions (spectral decomposition)
+A1.eig = eigen(A1)
+A2.eig = eigen(A2)
+
+#6 multiply eigenvectors by inverse sqrt covariance matrices
+for(i in 1:min(length(A1.eig$values),length(A2.eig$values))){
+  writeLines(paste0("Canonical Variate Loadings: ",as.character(i)))
+  writeLines("X1, X2, X3")
+  print(round(A1.eig$vectors[,i] %*% solve(sig11.5),digits=5))
+  writeLines("")
+  writeLines("X4, X5")
+  print(round(A2.eig$vectors[,i] %*% solve(sig22.5),digits = 5))
+  writeLines("")
+  writeLines(paste("Canonical Correlation ", round(sqrt(A1.eig$values[i]),digits=5)), sep="")
+  writeLines("\n\n")
+}
+
+```
+### Determine the canonical variates and their correlations.  Try to interpret these quantities.  
+    The canonical variate loadings and the canonical variable correlations are listed above for the first 2 canonical variables. While it is unknown if the variables have been standardized, it can be seen that the weighted difference between the variables Glucose Intolerance and Insulin Resistance and the variable Insulin Response to Oral Glucose is most highly correlated with the weighted difference between Relative Weight and Fasting Plasma Glucose.  
+    The second canonical variate correlates the difference between variable X1 and variables X2 and X3 to the difference between variables X4 and X5.  
+
+## 3. Track data
+    
+```{r}
+df.trk = read.csv("TrackData.csv")
+head(df.trk)
+
+```
+
+### a. Find the sample covariance matrix S and the sample correlation matrix R for the distance records.  Which of these matrices would you find more interesting/appropriate to use for a principal component analysis, and why?  
+    
+    The covariance and correlation matrices are displayed below. For PCA, it is more appropriate to standardize the variables or use the correlation matrix as the scales differ between the shorted and longer races.  
+
+```{r}
+dim(df.trk)
+trk.S = cov(df.trk[,3:10])
+trk.R = cor(df.trk[,3:10])
+trk.S
+trk.R
+
+```
+
+### b. Find the eigenvalues and eigenvectors of S. 
+
+    The eigendeomposition of S is displayed below.  
+
+```{r}
+trk.S.eig = eigen(trk.S)
+trk.S.eig
+```
+
+### c. Find the eigenvalues and eigenvectors of R.  
+    
+    The eigendeomposition of R is displayed below.  
+    
+```{r}
+trk.R.eig = eigen(trk.R)
+trk.R.eig
+```
+
+### d. Construct plots of the loadings (the coefficient vectors) for the first four principal components computed using the sample covariance matrix S.  
+    
+    The plots are displayed below.  
+    
+```{r}
+par(mfrow=c(2,2), oma = c(0,0,2,0))
+for (i in 1:4){
+  plot(1:8, trk.S.eig$vec[,i], xlab = "Variable",
+       ylab = "Loading", main = paste0("Principal Component ", i),
+       ylim = c(-1,1))
+}
+mtext("Raw Principal Components", outer = T)
+```
+
+### e. How would you interpret the loadings for the first principal component found using S?  
+    
+    The loading plot for the first principal component indicates that the Marathon time variable contributes the most to that particular direction, with minor contributions from the other variables.  
+    
+```{r}
+
+
+```
+
+### f. Construct plots of the loadings (the coefficient vectors) for the first four principal components computed using the sample correlation matrix R.  
+    
+    The plots are displayed below.  
+    
+```{r}
+par(mfrow=c(2,2), oma = c(0,0,2,0))
+for (i in 1:4){
+  plot(1:8, trk.R.eig$vec[,i], xlab = "Variable",
+       ylab = "Loading", main = paste0("Principal Component ", i),
+       ylim = c(-1,1))
+}
+mtext("Standardized Principal Components", outer = T)
+
+```
+
+### g. How would you interpret the loadings for the first principal component found using R?  
+    
+    The loading plot for the first principal component indicates that the eight variables contribute similar amounts to that particular direction. 
+
+### h. How would you interpret the loadings for the second principal component found using S?  
+    
+    The loading plot for the second principal component indicates that the third variable contributes the most to that particular direction, with more moderate contributions from other variables, and very little from the fourth and fifth variables. 
+
+### i. Plot the scree plot and cumulative variance explained plot for the principal components found using R.  
+  
+    The plots are displayed below.  
+    
+```{r}
+plot(1:8, trk.R.eig$values, type="b", main = "Scree Plot for R",
+     xlab = "Principal Component",
+     ylab = "Variance Explained")
+
+plot(1:8, cumsum(trk.R.eig$values)/sum(trk.R.eig$values), type="b", 
+     main = "Cumulative Variance for R",
+     xlab = "# Principal Components",
+     ylab = "Cumulative Variance Explained")
+
+```
+
+### j. How many principal components of R would you want to keep to explain ‘most’ of the signal in this data? Explain your choice.  
+    
+    I would choose to keep two principal components. There is an inflection point at the second principal component, and the first two explain nearly 95% of the variance.  
+    
+
+

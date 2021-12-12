@@ -1,0 +1,135 @@
+---
+title: "ST558: Module9 R Activity"
+author: "Philip Ourso"
+date: "November 28, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE, message=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, warning=FALSE, message=FALSE, echo=FALSE}
+#library(tidyverse)
+#library(ggplot2)
+#library(GGally)
+#library(gridExtra)
+#library(corrplot)
+
+#library(MASS)
+#library(class)
+#library(rpart)
+#library(rpart.plot)
+#library(CCA)
+#library(mclust)
+library(psych)
+library(ca)
+```
+
+### Set working dir and read in data  
+
+```{r}
+setwd("C:/Users/pourso/Google Drive/School/st558")
+sportIceCream = read.csv('SportIceCreamData.csv', row.names = 1)
+sportIceCream
+```
+  
+1. Read in ‘MammalMilkData.csv’, which contains data on the composition of milk from 25 different mammal species. Five variables are measured for a representative milk sample from each different species: Water content, Protein content, Fat content, Lactose content, and Ash. The first column of the dataset contains the mammal name for each row.   Save this data as ‘milk’, and display the first six rows of the dataset.    
+  
+    The first 6 rows are displayed below.    
+    
+```{r}
+milk = read.csv('MammalMilkData.csv')
+head(milk,6)
+```
+
+2. Read in ‘BirthDeathMonthData.csv’, which contains data on the birth and death months of 1281 people.   Save this data as ‘bdmonth’, and display the dataset.  
+    
+    The pairwise scatterplots are created below. A few of the plots exhibit some visual clustering, such as Displacement vs Cylinders, Weight vs MPG, Weight vs Horsepower, etc, but its not especially obvious.      
+    
+```{r, message=F}
+bdmonth = read.csv("BirthDeathMonthData.csv")
+bdmonth
+```
+  
+### Performing multidimensional scaling    
+
+```{r}
+#load cities dataset
+data(cities)
+cities
+
+#multidimensional scaling/ principle coordinate analysis
+city.loc.mds0 = cmdscale(cities, k=2)
+city.loc.mds0
+
+#plot 2D representation
+plot(city.loc.mds0, pch=16)
+text(city.loc.mds0, labels=row.names(cities), pos=1, cex=0.5)
+
+#rotate map
+city.loc.mds = -city.loc.mds0
+plot(city.loc.mds, pch=16)
+text(city.loc.mds, labels=row.names(cities), pos=1, cex=0.5)
+
+```
+
+3. Perform an MDS analysis using the Euclidean distance between the mammals.  [Note that the ‘cmdscale()’ function requires a distance matrix, so you must first compute a distance matrix from the appropriate columns of the ‘milk’ data.] Report the coordinates of the resulting points.  
+    
+    Coordinates are displayed below.      
+    
+```{r, fig.height = 8, fig.width = 6}
+#get distance matrix
+milk.distEuc = dist(milk[,-1])
+
+#multidimensional scaling
+milk.mds = cmdscale(milk.distEuc, k=2)
+
+data.frame(animal=milk[,1],x=milk.mds[,1],y=milk.mds[,2])
+```
+
+4. Plot the MDS points from the previous question.  Label the points with the mammal name using the ‘text’ function. [Note that the mammal name is stored as a factor, but we want R to print the actual words next to the corresponding points.  You can accomplish this by converting the first column to a ‘character’ type using the function ‘as.character()’.]  
+    
+    The coordinates are plotted below.      
+
+```{r, fig.height=8, fig.width=8}
+plot(milk.mds, pch=16)
+text(milk.mds, labels=as.character(milk[,1]), pos = 1, cex=0.5)
+```
+
+5. Describe the resulting plot: which species are close together, which are far apart, is there anything that surprises you about where the species are placed?  
+  
+    The majority of the animals are close together, although seal and dolphin are located far from the other animals, which makes sense. Deer and reindeer are close together, although surprisingly they are clustered with whale. "Horse-like" animals (horse, mule, donkey, zebra, camel, llama) are clustered together, which makes sense, but interestingly orangutan and monkey are also close.        
+  
+### Performing correspondence analysis  
+  
+```{r}
+#compute correspondence analysis
+sportIceCream.ca = ca(sportIceCream)
+sportIceCream.ca
+names(sportIceCream.ca)
+
+#plot row and col coords
+plot(sportIceCream.ca)
+plot(sportIceCream.ca, arrows = c(T,T))
+
+```
+  
+6. Perform a correspondence analysis on the ‘bdmonth’ data. Plot the resulting points, with or without arrows—whichever you prefer.  
+    
+    The row and column coordinates are plotted below.   
+    
+```{r}
+row.names(bdmonth) = bdmonth[,1]
+bdmonth.ca = ca(bdmonth[,-1])
+plot(bdmonth.ca)
+```
+  
+7. Describe any patterns or interesting associations you see in the correspondence analysis plot.  Does it look like people who are born in a certain season (i.e. winter, spring, summer, fall) tend to die in a possibly different certain season?   
+    
+    There doesn't appear to be an obvious pattern, but there are a few correspondences. People born in July and October also appear to tend to die in July and October. Similarly, April, August and September births and deaths are close, clustered near the origin. March and May indicate a complementary relationship: May births are close to March deaths and vice versa. There are weaker examples of this proximity: Feb-Dec and Jan-Jun.        
+    
+  
+### Appendix: R code
+```{r ref.label=knitr::all_labels(), echo = T, eval = F}
+```

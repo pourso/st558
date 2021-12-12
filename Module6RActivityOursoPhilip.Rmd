@@ -1,0 +1,435 @@
+---
+title: "ST558: Module6 R Activity"
+author: "Philip Ourso"
+date: "November 7, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE, message=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, warning=FALSE, message=FALSE, echo=FALSE}
+#library(tidyverse)
+#library(gridExtra)
+#library(corrplot)
+
+#library(MASS)
+#library(class)
+#library(rpart)
+#library(rpart.plot)
+library(CCA)
+```
+
+### Set working dir and read in data  
+
+```{r}
+setwd("C:/Users/pourso/Google Drive/School/st558")
+nyse = read.csv('NYSEData.csv')
+exam = read.csv('TestScoreData.csv')
+```
+  
+1. Read in ‘PsychData.csv’, which contains measurements on 6 variables for 600 high school students.  The first three variables measure aspects of personality: locus of control, self-concept, and motivation. The next three variables are standardized test scores for reading, writing, and science tests.  Save this data as ‘psych’, and display the first six rows of the dataset.    
+  
+    The first 6 rows are displayed below.    
+    
+```{r}
+psych = read.csv('PsychData.csv')
+head(psych,6)
+```
+
+2. Make a pairs plot of the 6 variables in the ‘psych’ data set.   Based on these plots, make a guess as to how correlated the maximally correlated linear combinations of the two sets of variables are: that is, what do you think the correlation between the first pair of canonical variables will be?  
+    
+    The pairwise scatterplots are created below. The first set of variables appears weakly correlated to each other, while the second appears more strongly correlated to each other, so I would expect a lower correlation between the first pair of canonical variables.      
+    
+```{r}
+pairs(psych)
+```
+
+
+3. Read in ‘Seed3Data.csv’, which contains measurements on 7 geometric variables describing the shape and size of wheat kernels from a particular wheat variety.  Save this data as ‘seeds’, and display the first six rows of the dataset.  
+    
+    The first 6 rows are displayed below.      
+    
+```{r}
+seeds = read.csv('Seeds3Data.csv')
+head(seeds,6)
+```
+
+4. Make a pairs plot of the 7 variables in the ‘seeds’ data set. Based on these plots, which variables do you think will be most heavily weighted in the first principal component? That is, what do you think the direction of maximal spread in the data seems to be?  
+    
+    The plot is below. Asymmetry appears to exhibit low correlation with other variables and fairly large variance.    
+
+```{r}
+pairs(seeds)
+```
+
+### Performing canonical correlation analysis (CCA) by hand  
+
+```{r}
+#separate variables
+x1 = as.matrix(nyse[,1:2])
+x2 = as.matrix(nyse[,3:5])
+
+#compute covariance matrices
+sig11 = cov(x1)
+sig12 = cov(x1,x2)
+sig22 = cov(x2)
+
+#compute square-root matrix of S11 and S22
+sig11.eig = eigen(sig11)
+sig11.5 = sig11.eig$vec %*% diag(sqrt(sig11.eig$val)) %*%
+  t(sig11.eig$vec)
+sig11
+sig11.5 %*% sig11.5
+
+sig22.eig = eigen(sig22)
+sig22.5 = sig22.eig$vec %*% diag(sqrt(sig22.eig$val)) %*%
+  t(sig22.eig$vec)
+sig22
+sig22.5 %*% sig22.5
+
+#find matrices A1 and A2
+A1 = solve(sig11.5) %*% sig12 %*% solve(sig22) %*%
+  t(sig12) %*% solve(sig11.5)
+A2 = solve(sig22.5) %*% t(sig12) %*% solve(sig11) %*%
+  sig12 %*% solve(sig22.5)
+
+#find eigendecompositions
+A1.eig = eigen(A1)
+A2.eig = eigen(A2)
+
+#multiply eigenvectors by inverse sqrt covariance matrices
+e1 = A1.eig$vec[,1]
+f1 = A2.eig$vec[,1]
+
+a1 = e1 %*% solve(sig11.5)
+b1 = f1 %*% solve(sig22.5)
+
+#coefficient vectors 
+a1
+b1
+
+#get canonical variable scores
+u1 = x1 %*% t(a1)
+v1 = x2 %*% t(b1)
+
+sqrt(A1.eig$val[1])
+sqrt(A2.eig$val[1])
+cor(u1,v1)[,1]
+
+#compute loadings, scores and correlation for second pair of canonical variates
+e2 = A1.eig$vec[,2]
+f2 = A2.eig$vec[,2]
+
+a2 = e2 %*% solve(sig11.5)
+b2 = f2 %*% solve(sig22.5)
+a2
+b2
+
+u2 = x1 %*% t(a2)
+v2 = x2 %*% t(b2)
+
+sqrt(A1.eig$val[2])
+sqrt(A2.eig$val[2])
+cor(u2,v2)
+
+a2 = -a2
+a2
+u2 = x1 %*% t(a2)
+cor(u2,v2)
+```
+
+
+5. Calculate the coefficients for the first pair of canonical variables for the ‘psych’ data.  What does the first canonical variable seem to be measuring/comparing in the first set of variables (personality variables)? What does the first canonical variable seem to be measuring/comparing in the second set of variables (standardized test variables)?  
+  
+    The first canonical coefficient vectors are displayed below. The coefficients for the first set of variables appears to be measuring the difference between locus, motiv scores and self score, with most emphasis on locus and motiv scores. The coefficients for the second set of variables appear to measure the cumulative test results, with most emphasis on reading and writing scores.      
+  
+```{r}
+#1 separate variables
+
+xp1 = as.matrix(psych[,1:3])
+xp2 = as.matrix(psych[,4:6])
+
+#2 compute covariance matrices
+sigp11 = cov(xp1)
+sigp12 = cov(xp1,xp2)
+sigp22 = cov(xp2)
+
+#3 compute square-root matrix of S11 and S22
+sigp11.eig = eigen(sigp11)
+sigp11.5 = sigp11.eig$vec %*% diag(sqrt(sigp11.eig$val)) %*%
+  t(sigp11.eig$vec)
+
+sigp22.eig = eigen(sigp22)
+sigp22.5 = sigp22.eig$vec %*% diag(sqrt(sigp22.eig$val)) %*%
+  t(sigp22.eig$vec)
+
+#4 find matrices A1 and A2
+Ap1 = solve(sigp11.5) %*% sigp12 %*% solve(sigp22) %*%
+  t(sigp12) %*% solve(sigp11.5)
+Ap2 = solve(sigp22.5) %*% t(sigp12) %*% solve(sigp11) %*%
+  sigp12 %*% solve(sigp22.5)
+
+#5 find eigendecompositions (spectral decomposition)
+Ap1.eig = eigen(Ap1)
+Ap2.eig = eigen(Ap2)
+
+#6 multiply first eigenvectors by inverse sqrt covariance matrices
+ep1 = Ap1.eig$vec[,1]
+fp1 = Ap2.eig$vec[,1]
+
+ap1 = ep1 %*% solve(sigp11.5)
+bp1 = fp1 %*% solve(sigp22.5)
+
+#coefficient vectors 
+ap1
+bp1
+
+
+```
+
+
+6. Plot the scores for the first canonical variables against each other: U1 vs. V1. Can you detect a positive correlation between these scores?  
+    
+    The canonical scores appear to be negatively correlated.  
+    
+```{r}
+# find canonical scores for both variable sets
+up1 = xp1 %*% t(ap1)
+vp1 = xp2 %*% t(bp1)
+plot(up1, vp1)
+#cor(up1, vp1)
+```
+
+7. Calculate the correlation between the first pair of canonical variables.  Was your guess from Question 2 in the right range?   
+    
+    The correlation appears to be moderate, -0.44. Qualitatively, my guess was that the correlation would be low, which was incorrect.  
+    
+```{r}
+cor(up1, vp1)
+```
+
+### Performing canonical correlation analysis (CCA) using a function in a contributed R package  
+    
+```{r}
+nyse.cc = cc(nyse[,1:2], nyse[,3:5])
+names(nyse.cc)
+
+#loading vectors 
+nyse.cc$xcoef
+a1
+a2
+
+nyse.cc$ycoef
+b1
+b2
+
+plot(nyse.cc$scores$xscores[,1], nyse.cc$scores$yscores[,1],
+     xlab = "First Canonical Variate U1 Scores",
+     ylab = "First Canonical Variate V1 Scores")
+plot(nyse.cc$scores$xscores[,2], nyse.cc$scores$yscores[,2],
+     xlab = "Second Canonical Variate U1 Scores",
+     ylab = "Second Canonical Variate V1 Scores")
+
+u1[1:10]
+nyse.cc$scores$xscores[1:10,1]
+
+u1.sc = u1 - mean(u1)
+u1.sc[1:10]
+
+nyse.cc$scores$yscores[1:10,1]
+
+v1.sc = v1 - mean(v1)
+v1.sc[1:10]
+
+```
+
+
+8. Use the ‘cc()’ function to perform canonical correlation analysis on the ‘psych’ data.  Confirm that the results match what you computed by hand: the coefficients, correlations, and (centered) scores.    
+    
+    The output of the cc() function matches hand calculations, although the first canonical coefficients for the first set of variables are of opposite sign. This is also true of the correlation between the first canonical variates and the centered scores for the first set of variables.   
+    
+```{r}
+head(psych)
+#compute canonical coefficients
+psych.cc = cc(psych[,1:3], psych[,4:6])
+
+#compare coefficients 
+psych.cc$xcoef[,1]
+ap1
+psych.cc$ycoef[,1]
+bp1
+
+#compare correlation
+psych.cc$cor[1]
+cor(up1, vp1)
+
+#compare scores
+psych.cc$scores$xscores[1:10,1]
+up1.c = up1 - mean(up1)
+up1.c[1:10]
+
+psych.cc$scores$yscores[1:10,1]
+vp1.c = vp1 - mean(vp1)
+vp1.c[1:10]
+
+```
+
+### Performing principal component analysis by hand  
+  
+```{r}
+head(exam)
+exam.cov = cov(exam)
+exam.cor = cor(exam)
+
+aVec1 = c(2,2,1,1,1,1,1,1)
+exam.linComb1 = as.matrix(exam) %*% aVec1
+exam.linComb1[1:10,]
+var(exam.linComb1)
+t(aVec1) %*% exam.cov %*% aVec1
+
+aVec2 = 10*aVec1
+exam.linComb2 = as.matrix(exam) %*% aVec2
+exam.linComb2[1:10,]
+var(exam.linComb2)
+
+aVec3 = 1:8
+exam.linComb3 = as.matrix(exam) %*% aVec3
+cov(exam.linComb1,exam.linComb3)
+
+t(aVec1) %*% exam.cov %*% aVec3
+t(aVec3) %*% exam.cov %*% aVec1
+
+#compute eigendecomposition of covariance matrix
+exam.cov.eig = eigen(exam.cov)
+exam.cor.eig = eigen(exam.cor)
+
+exam.cov.eig
+exam.cor.eig
+
+#plot loadings
+par(mfrow=c(3,3), oma=c(0,0,2,0))
+for(i in 1:8){
+  plot(1:8, exam.cov.eig$vec[,i], xlab = "Variable",
+       ylab="Loading", main = paste("Principal Component ", i, sep = ""),
+       ylim=c(-1,1))
+}
+mtext("Raw Principal Components", outer = T)
+
+par(mfrow=c(3,3), oma=c(0,0,2,0))
+for(i in 1:8){
+  plot(1:8, exam.cor.eig$vec[,i], xlab = "Variable",
+       ylab="Loading", main = paste("Principal Component ", i, sep = ""),
+       ylim=c(-1,1))
+}
+mtext("Standardized Principal Components", outer = T)
+
+#plot scores for first and second principal components
+exam.pcscores.raw12 = as.matrix(exam) %*% exam.cov.eig$vec[,1:2]
+plot(exam.pcscores.raw12, xlab = "First Principal Component Scores",
+     ylab = "Second Principal Component Scores", main = "(Raw) Score Plot")
+
+exam.pcscores.cent12 = scale(exam, center = T, scale = F) %*% exam.cov.eig$vec[,1:2]
+plot(exam.pcscores.cent12, xlab = "First Principal Component Scores",
+     ylab = "Second Principal Component Scores", main = "(Centered) Score Plot")
+
+#scree, cume variance explained plots
+plot(1:8, exam.cov.eig$val, type="b", xlab = "Component",
+     ylab="Variance", main = "Scree Plot for NYSE Data")
+
+exam.cov.eig$val
+cumsum(exam.cov.eig$val)
+cumsum(exam.cov.eig$val)/ sum(exam.cov.eig$val)
+plot(1:8, cumsum(exam.cov.eig$val)/sum(exam.cov.eig$val),
+     type = "b", xlab = "# Components", ylab="Cumulative Variance Explained")
+```
+
+9. Compute and report the unstandardized principal component directions (loadings) for the first two principal components of the ‘seeds’ data.  Did this direction match what you guessed in Question 4? Which variables are weighted most heavily in this first principal component (note that it is the magnitude of the loadings that we are interested in here, not the signs).  
+    
+    The loadings for the first 2 principal components are displayed below. Asymmetry is weighted most heavily in the first principal component, which matches my guess in question 4.        
+    
+```{r}
+#compute sample covariance
+seeds.cov = cov(seeds)
+
+#compute eigendecomposition of sample covariance
+seeds.cov.eig = eigen(seeds.cov)
+
+#report loadings of first 2 (unstandardized) principal components
+for(i in 1:2){
+  writeLines(paste("Principal Component ", i, " Loadings"))
+  print(seeds.cov.eig$vectors[,i])
+  writeLines("\n")  
+}
+
+
+```
+
+10. How much of the variance in the ‘seeds’ data is explained by the first three principal components?  
+    
+    The first 3 principal components explain 99.7% of the variance.  
+
+```{r}
+cumsum(seeds.cov.eig$values)[3]/sum(seeds.cov.eig$values)
+
+```
+  
+  
+11. How many principal components would you need to use to explain 90% of the total variance in the ‘seeds’ data?  
+    
+    To explain 90% of the total variance in the seeds data would require the first 2 principal components.  
+    
+```{r}
+cumsum(seeds.cov.eig$values)/sum(seeds.cov.eig$values)
+```
+  
+###	Performing principal components analysis (PCA) using built-in R functions  
+  
+```{r}
+#prcomp()
+exam.pc1 = prcomp(exam)
+names(exam.pc1)
+
+#compare std dev's
+exam.pc1$sdev
+sqrt(exam.cov.eig$val)
+
+#compare loadings
+exam.pc1$rotation
+exam.cov.eig$vec
+
+#compare scores
+exam.pc1$x[1:8,1:2]
+exam.pcscores.cent12[1:8,]
+
+#standardized PCA
+exam.pc1.sc = prcomp(exam, scale=T)
+
+#std dev
+exam.pc1.sc$sdev
+sqrt(exam.cor.eig$val)
+
+#loadings
+exam.pc1.sc$rotation
+exam.cor.eig$vec
+```
+
+
+12. Use the ‘prcomp()’ function to compute the standardized principal components for the ‘seeds’ data. How much does the first principal component direction change from the unstandardized version?  
+    
+    The first principal component appears to change quite significantly; the loadings are changed by an order of magnitude higher, in most cases, except Asymmetry, which decreases by an order of magnitude.  
+  
+```{r}
+#seeds.cov.eig$vectors[,1]
+seeds.pc1 = prcomp(seeds)
+seeds.pc1$rotation[,1]
+seeds.pc1.sc = prcomp(seeds, scale = T)
+seeds.pc1.sc$rotation[,1]
+
+```
+
+    
+### Appendix: R code
+```{r ref.label=knitr::all_labels(), echo = T, eval = F}
+```

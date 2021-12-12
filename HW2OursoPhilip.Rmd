@@ -1,0 +1,217 @@
+---
+title: 'ST558: HW2'
+author: "Philip Ourso"
+date: "October 20, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, warning=FALSE, echo=FALSE}
+library(tidyverse)
+library(ICSNP)
+library(rrcov)
+
+```
+
+## 1. Test scores dataset
+```{r}
+df.test = read.csv("Testscores.csv")
+
+head(df.test)
+```
+### a. Test the null hypothesis H_0:μ=[500  50  30]^T vs the alternative H_A:μ≠[500  50  30]^T at significance level α=0.05 using simultaneous univariate t-tests with the Bonferroni correction. Would this multivariate hypothesis be rejected?  
+    Yes, in the simultaneous univariate t-tests all t-statistics are larger in magnitude than the Bonferroni-corrected critical value at an overall significance level of 0.05.  
+    
+```{r}
+test.mat = as.matrix(df.test)
+test.mu0 = c(500, 50, 30)
+
+#calc mean, variances
+test.xbar = apply(test.mat, 2, mean)
+test.vars = apply(test.mat, 2, var)
+
+#calc t-statistics
+n = nrow(test.mat)
+p = ncol(test.mat)
+test.ts = (test.xbar-test.mu0)/sqrt(test.vars/n)
+
+#apply Bonferroni correction
+alpha=0.05
+alpha.star = alpha/ ncol(test.mat)
+
+#compare for large critical values
+crit.t = qt(alpha.star/2, n-1, lower.tail = FALSE)
+if(any(abs(test.ts)>crit.t)){
+  abs(test.ts)>crit.t
+}
+
+#p-values
+test.ps.raw = 2*(1-pt(abs(test.ts),n-1))
+test.ps.bon = test.ps.raw * p
+
+#visualize
+#test.aug = rbind(test.mat, test.xbar, test.mu0)
+#pairs(test.aug, 
+#      col=rep(c("black","blue","red"), c(n, 1, 1)),
+#      pch=rep(c(1,16),c(n,1)))
+```
+
+### b. Test the null hypothesis H_0:μ=[500  50  30]^T vs the alternative H_A:μ≠[500  50  30]^T at significance level α=0.05 using Hotelling’s T2 test. Would this multivariate hypothesis be rejected?  
+    Yes, with a near-zero p-value from both hand calculations and the HotellingsT2() function, we would reject the null hypothesis at a significance level of 0.005.  
+    
+```{r}
+#calc covariance matrix
+test.cov = cov(test.mat)
+
+#find Hotelling's T^2 statistic
+test.T = n*t(test.xbar-test.mu0) %*%
+  solve(test.cov) %*%
+  (test.xbar-test.mu0)
+
+#scale for comparison to F-dist
+test.T.scaled = ((n-p)/((n-1)*p))*test.T
+test.T.crit = qf(1-alpha, p, n-p) 
+
+#find p-value
+test.p = 1 - pf(test.T.scaled,df1=n,df2=n-p)
+
+#double check w/ function
+HotellingsT2(test.mat, mu=test.mu0)
+
+```
+
+## 2. Reading tests dataset  
+```{r}
+df.read = read.csv("ReadingTest.csv")
+head(df.read)
+#n= nrow(df.read)
+#p= ncol(df.read)
+read.mat = as.matrix(df.read)
+
+```
+### a. Is a paired test appropriate to test the hypothesis H_0:μ_1=μ_2 vs. H_A:μ_1=μ_2? Explain.  
+    Yes, this situation is an example of a paired multivariate comparison, and can be simplified to the one-sample case by considering the difference of before and after vectors, then comparing for a mean of zero.  
+
+### b. Test H_0:μ_1=μ_2 vs. H_A:μ_1=μ_2 at level α=0.05 using simultaneous univariate hypothesis tests with Bonferroni correction.  Based on the result of these hypothesis test, would you conclude that the reading instruction produces a difference in performance on the two tests?  
+    Yes, given that the resulting t-statistics are larger than the corrected critical value, I would conclude that we should reject the null hypothesis of equal means.  
+    
+```{r}
+#construct matrix of diffs, find mean, variance
+read.diffs = read.mat[,2:3] - read.mat[,4:5]
+read.xbar = apply(read.diffs, 2, mean)
+read.vars = apply(read.diffs, 2, var)
+
+#find t-statistics
+read.mu0 = rep(0,2)
+n = nrow(read.diffs)
+p = ncol(read.diffs)
+alpha = 0.05
+read.ts = (read.xbar-read.mu0)/sqrt(read.vars/n)
+
+#apply correction and compare
+read.alpha.star = 0.05/p
+read.crit.t = qt(read.alpha.star/2, n-1, lower.tail = FALSE)
+if(any(abs(read.ts)>read.crit.t)){
+  abs(read.ts)>read.crit.t
+}
+
+#double check w/ t.test()
+apply(read.diffs,2, t.test)
+
+```
+
+### c. Perform a level α=0.05 test of H_0:μ_1=μ_2 vs. H_A:μ_1=μ_2.  Based on the result of this hypothesis test, would you conclude that the reading instruction produces a difference in performance on the two tests?  
+    Yes, using Hotellings T^2 test for equal means, we can see that the extremely low p-value suggests we should reject the null hypothesis and conclude that the reading instruction produces a difference in performance on the two tests.  
+    
+```{r}
+HotellingsT2(read.diffs, mu=read.mu0)
+```
+
+### d. Now suppose you wanted to construct a confidence region for the difference in mean vectors 〖Δ=μ〗_1-μ_2.  Would the difference vector Δ_0=[1   1]^T be in that confidence region?  Explain how you reached your conclusion.  (Hint: recall how confidence regions are constructed from hypothesis test results.)  
+    The confidence region for the mean difference vector is the set of all vectors such that the scaled Hotelling's T^2 statistic is less than the critical value of the F-dist at the desired significance level with parameters p and (n-p). This is essentially finding the T^2 statistic for the stated mean difference vector and comparing to the F-dist, as below.  
+    Given that the scaled statistic is larger than the critical value, it doesn't appear that the difference vector [1, 1] is in the confidence region.  
+    
+```{r}
+read.mu1 = rep(1,2)
+
+#calc covariance matrix
+read.cov = cov(read.diffs)
+
+#find Hotelling's T^2 statistic
+read.T = n*t(read.xbar-read.mu1) %*%
+  solve(read.cov) %*%
+  (read.xbar-read.mu1)
+
+#scale for comparison to F-dist
+read.T.scaled = ((n-p)/((n-1)*p))*read.T
+read.T.crit = qf(1-alpha, p, n-p) 
+
+#compare scaled stat to critical value
+read.T.scaled <= read.T.crit
+
+```
+
+## 3. Skull size dataset
+    
+```{r}
+df.skull = read.csv("SkullData.csv")
+head(df.skull)
+
+```
+
+### a. Compute and compare the covariance matrices for each of the five time periods.  Do they seem approximately similar? Would you be comfortable assuming that the population covariance matrices are the same for these five different time periods?  
+    
+    While there are some non-trivial differences in order of magnitude in the covariances, the overall difference among them doesn't appear to be too dramatic, and so I would assume similar population covariances among time periods.  
+
+```{r}
+years = unique(df.skull$Year) 
+for (i in 1:length(years)){
+  skull.year = df.skull[df.skull$Year == years[i], 2:5]
+  print(years[i])
+  print(cov(skull.year))
+}
+```
+
+### b. Perform separate univariate ANOVAs for each of the four variables at level  α^*=α/p=0.05/p. Are any of these univariate ANOVAs significant?  
+    Performing 4 univariate ANOVA tests, for each variable given grouping according to year, two of the tests are found to be significant at a level of alpha/ p == 0.0125, the test of MB and the test of BL. For these variables, a univariate ANOVA test rejects the hypothesis of equal means between different years.  
+
+```{r}
+alpha.star = 0.05/ (ncol(df.skull)-1)
+vars = colnames(df.skull[,2:5])
+for (i in 1:length(vars)){
+  print(vars[i])
+  skull.aov = aov(df.skull[,vars[i]] ~ df.skull$Year)
+  print(skull.aov)
+  print(summary(skull.aov))
+  print(summary(skull.aov)[[1]][,5, drop = FALSE] < alpha.star)
+}
+
+```
+
+### c.Perform a level α=0.05 test of the hypothesis that the population mean vectors for all of these five time periods are the same (assume equal covariance matrices).  Based on this hypothesis test, does there seem to be evidence of interbreeding (if the researchers’ theory—that skull size change indicates interbreeding—is correct)?  
+    
+    A one-way multivariate ANOVA test using Wilk's Lambda statistic rejects the null hypothesis of equal mean vectors across groups at a significance level of 0.05 given the very low p-value. This supports the hypothesis of interbreeding among Egyptian populations over time.  
+    
+    
+```{r}
+Wilks.test(df.skull[,2:5], grouping=df.skull$Year)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

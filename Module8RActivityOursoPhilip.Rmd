@@ -1,0 +1,269 @@
+---
+title: "ST558: Module8 R Activity"
+author: "Philip Ourso"
+date: "November 22, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE, message=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, warning=FALSE, message=FALSE, echo=FALSE}
+library(tidyverse)
+library(ggplot2)
+library(GGally)
+#library(gridExtra)
+#library(corrplot)
+
+#library(MASS)
+#library(class)
+#library(rpart)
+#library(rpart.plot)
+#library(CCA)
+library(mclust)
+```
+
+### Set working dir and read in data  
+
+```{r}
+setwd("C:/Users/pourso/Google Drive/School/st558")
+milk = read.csv('MammalMilkData.csv')
+head(milk)
+dim(milk)
+```
+  
+1. Read in ‘Auto82MPGData.csv’, which contains measurements on 6 variables describing the engine size and performance parameters for 31 different car models all produced in 1982. The last column of the dataset contains the model name for each row.   Save this data as ‘auto82’, and display the first six rows of the dataset.    
+  
+    The first 6 rows are displayed below.    
+    
+```{r}
+auto82 = read.csv('Auto82MPGData.csv')
+head(auto82,6)
+```
+
+2. Make a pairs plot of the 6 variables in the ‘auto82’ data set.   Based on these plots, does it look like there are obvious clusters among these different car models?  
+    
+    The pairwise scatterplots are created below. A few of the plots exhibit some visual clustering, such as Displacement vs Cylinders, Weight vs MPG, Weight vs Horsepower, etc, but its not especially obvious.      
+    
+```{r, message=F}
+pairs(auto82[,1:6])
+
+#ggpairs(auto82[,1:6], progress=F)
+
+
+```
+  
+### Performing hierarchical clustering  
+
+```{r}
+#compute distance matrix
+milk.distEuc = dist(milk[,-1])
+
+#create hierarchical clusters
+milk.hcEuc = hclust(milk.distEuc, method = "complete")
+milk.haEuc = hclust(milk.distEuc, method = "average")
+milk.hsEuc = hclust(milk.distEuc, method = "single")
+
+#plot dendrograms
+par(mfrow=c(1,3))
+plot(milk.hcEuc, labels = milk[,1], hang = -1, sub = "",
+     main = "Complete Linkage")
+plot(milk.haEuc, labels = milk[,1], hang = -1, sub = "",
+     main = "Average Linkage")
+plot(milk.hsEuc, labels = milk[,1], hang = -1, sub = "",
+     main = "Single Linkage")
+
+
+#standardize variables
+milk.sc = scale(milk[,-1])
+
+#compute distance matrix
+milk.distEucSc = dist(milk.sc)
+
+#create clusters
+milk.hcEucSc = hclust(milk.distEucSc, method = "complete")
+milk.haEucSc = hclust(milk.distEucSc, method = "average")
+milk.hsEucSc = hclust(milk.distEucSc, method = "single")
+
+par(mfrow=c(1,3))
+plot(milk.hcEucSc, labels = milk[,1], hang=-1)
+plot(milk.haEucSc, labels = milk[,1], hang=-1)
+plot(milk.hsEucSc, labels = milk[,1], hang=-1)
+
+#restric height of tree
+cutree(milk.hcEucSc, k=3)
+
+pairs(milk[,-1], col = cutree(milk.hcEucSc, k=3)+1)
+
+#compute mahalanobis distance
+milk.cov = cov(milk[,-1])
+milk.sph = as.matrix(milk[,-1]) %*% t(chol(solve(milk.cov)))
+milk.distMah = dist(milk.sph)
+
+#compare distances
+milk.mat = as.matrix(milk[,-1])
+sqrt((milk.mat[1,] - milk.mat[2,]) %*%
+       solve(milk.cov)%*%(milk.mat[1,]-milk.mat[2,]))
+as.matrix(milk.distMah)[1,2]
+
+#hierarchical clustering w/ mahalanobis
+milk.hcMah = hclust(milk.distMah, method = "complete")
+milk.haMah = hclust(milk.distMah, method = "average")
+milk.hsMah = hclust(milk.distMah, method = "single")
+
+#plot dendrograms
+par(mfrow=c(1,3))
+plot(milk.hcMah, labels=milk[,1], hang=-1)
+plot(milk.haMah, labels=milk[,1], hang=-1)
+plot(milk.hsMah, labels=milk[,1], hang=-1)
+
+#get correlation between rows
+milk.distCor = 1 - cor(t(milk[,-1]))^2
+
+#hierarchical clustering w/ mahalanobis
+milk.hcCor = hclust(as.dist(milk.distCor), method = "complete")
+milk.haCor = hclust(as.dist(milk.distCor), method = "average")
+milk.hsCor = hclust(as.dist(milk.distCor), method = "single")
+
+#par(mfrow=c(1,3))
+plot(milk.hcCor, labels=milk[,1], hang=0.5)
+plot(milk.haCor, labels=milk[,1], hang=0.5)
+plot(milk.hsCor, labels=milk[,1], hang=0.5)
+
+```
+
+3. Perform hierarchical clustering using Euclidean distance on the unstandardized data, with complete linkage.  Plot the resulting dendrogram with the car model names as labels.  How many clusters would you say there are based on this dendrogram?  
+    
+    While we can dictate the number of clusters by restricting the height, based on the dendrogram below I'd suggest 3 clusters.      
+    
+```{r, fig.height = 8, fig.width = 6}
+auto82.distEuc= dist(auto82[,-7])
+auto82.hcEuc = hclust(auto82.distEuc, method = "complete")
+
+plot(auto82.hcEuc, labels = auto82[,7], hang = -1)
+```
+
+4. Perform hierarchical clustering using Euclidean distance on the standardized data, with complete linkage.  Plot the resulting dendrogram with the car model names as labels.  Does this dendrogram differ substantially from the unstandardized version?  
+    
+    This dendrogram has a significant difference from the unstandardized version: the clustering is far less balanced, with most observations segregated from a smaller set at the first split.      
+
+```{r, fig.height=8, fig.width=6}
+#standardize data first
+auto82.sc = scale(auto82[,-7])
+auto82.distEucSc = dist(auto82.sc)
+auto82.hcEucSc = hclust(auto82.distEucSc, method = "complete")
+plot(auto82.hcEucSc, labels = auto82[,7], hang = -1)
+
+```
+
+5. Perform hierarchical clustering using Euclidean distance on the standardized data, with single linkage.  Plot the resulting dendrogram with the car model names as labels.  Does this dendrogram differ substantially from the version with complete linkage on the standardized data?  
+  
+    Yes, while the dendrogram is similarly imbalanced, the models that appear in the smaller initial cluster are completely different. The "skewness" of the imbalance has shifted to the left.      
+  
+```{r, fig.height=8, fig.width=6}
+auto82.hsEucSc = hclust(auto82.distEucSc, method = "single")
+plot(auto82.hsEucSc, labels = auto82[,7], hang = -1)
+```
+
+6. Cut the dendrogram based on the unstandardized data with Euclidean distance complete linkage to produce 4 clusters.  Are there any obvious patterns in these 4 clusters (you all may or may not know more about cars than I do, but you can at least look at the car make (e.g. Honda) to see if the same make tends to cluster together)?  
+    
+    Cars of a certain weight and horsepower class tend to be grouped together. On the lighter, weaker end of the scale are the cars like Mazda GLC and VW Rabbit, while the opposite end of the spectrum is the cluster including heavy, powerful cars such as the Chevy Camaro.   
+    
+```{r, fig.width=6, fig.height=8}
+plot(auto82.hcEuc, labels = auto82[,7], hang = -1)
+pairs(auto82[,-7], col = cutree(auto82.hcEuc, k=4)+1)
+auto82$cluster_id = cutree(auto82.hcEuc, k=4)
+auto82 %>% group_by(cluster_id) %>% summarize(wgt=mean(Weight),
+                                              hpw=mean(Horsepower))
+```
+
+### Performing k-means clustering  
+
+```{r}
+milk.km3 = kmeans(milk[,-1], centers = 3, nstart = 10)
+names(milk.km3)
+
+milk[milk.km3$cluster==1,1]
+milk[milk.km3$cluster==2,1]
+milk[milk.km3$cluster==3,1]
+
+pairs(milk[,-1],col=milk.km3$cluster+1)
+
+table(milk.km3$cluster, cutree(milk.hcEuc, k=3))
+
+milk.km5.a = kmeans(milk[,-1], centers = 5, nstart = 1)
+milk.km5.b = kmeans(milk[,-1], centers = 5, nstart = 1)
+table(milk.km5.a$clus, milk.km5.b$clus)
+```
+
+7. Perform k-means clustering on the ‘auto82’ data to cluster the data into 4 clusters.  Print  the membership for each of the resulting clusters (note that your results may differ if you run this again, because of the random starts in the k-means algorithm).   
+    
+    The clusters are displayed below.  
+    
+```{r}
+auto82.km4 = kmeans(auto82[,1:6], centers = 4, nstart = 10)
+for (i in 1:4){
+  print(auto82[auto82.km4$clus==i,7])
+  writeLines("")
+}
+
+```
+    
+8. Make a table to compare the 4-cluster k-means clustering solution to the 4-cluster result from hierarchical clustering of the unstandardized data with Euclidean distance, complete linkage.    
+    
+    The table is displayed below.       
+    
+```{r}
+table(auto82.km4$cluster,cutree(auto82.hcEuc,k=4))
+
+```
+
+9. Produce a pairs plot of the 6 variables for the ‘auto82’ data, with the points colored based on their cluster assignment from your k-means solution.  
+    
+    The pairs plot is displayed below.        
+    
+```{r}
+pairs(auto82[,1:6], col=auto82.km4$clus+1)
+```
+  
+### Perform model-based clustering  
+  
+```{r}
+milk.mc = Mclust(milk[,-1])
+names(milk.mc)
+milk.mc
+pairs(milk[,-1], col=milk.mc$clas+1)
+
+milk.mc5 = Mclust(milk[,-1], G=5)
+pairs(milk[,-1], col=milk.mc5$clas+1)
+
+milk.mc3 = Mclust(milk[,-1], G=3)
+pairs(milk[,-1], col=milk.mc3$clas+1)
+
+table(milk.mc3$class, milk.km3$clust)
+```
+  
+10. Run model-based clustering on the ‘auto82’ data without specifying the number of clusters.  How many clusters does the BIC select as optimal for this data?  
+    
+    The model includes 2 clusters when G is left unspecified.  
+
+```{r}
+auto82.mc = Mclust(auto82[,1:6])
+length(unique(auto82.mc$clas))
+```
+  
+11. Run model-based clustering on the ‘auto82’ data specifying that there should be 4 clusters.  How does the 4-cluster model-based clustering solution compare to the 4-cluster k-means clustering solution?  
+    
+    The solutions are quite different: the largest cluster in the model-based clustering solution is split across 3 clusters in the k-means solution. The third cluster in the model-based solution is similarly split. No clusters match between solutions.    
+    
+```{r}
+auto82.mc4 = Mclust(auto82[,1:6], G=4)
+table(auto82.mc4$clas, auto82.km4$clus)
+
+```
+
+    
+### Appendix: R code
+```{r ref.label=knitr::all_labels(), echo = T, eval = F}
+```

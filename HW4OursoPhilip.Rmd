@@ -1,0 +1,218 @@
+---
+title: 'ST558: HW4'
+author: "Philip Ourso"
+date: "November 17, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, warning=FALSE, echo=FALSE, message=FALSE}
+#library(tidyverse)
+#library(ICSNP)
+#library(rrcov)
+
+#library(MASS)
+#library(class)
+#library(rpart)
+#library(rpart.plot)
+```
+
+## 1. Adults 65+
+```{r}
+#read data sets
+adult.cor = read.csv("PhysioData.csv")
+
+head(adult.cor)
+```
+### a. Perform a principal components factor analysis based on the given correlation matrix, for m = 2 and m = 3 factors. Describe how you might interpret the resulting factors for each model: can you describe the underlying latent variables for these two models? Which variables contribute most to each factor?  
+
+    The loadings for the first 3 factors are displayed below. Factor 1 appears to be a "size" factor: weight, height and fev are loaded the most heavily. Factor 2 appears to contrast sbp and aai, and hence could be considered an "arterial disease" or "blood pressure" factor. Factor 3, which loads heavily on ldl and alb, could be considered a "dietary" factor.     
+    
+```{r}
+#m = 2
+#eigen decomposition
+adult.eig = eigen(adult.cor)
+
+#loadings = eigenvectors * sqrt(eigenvalues)
+adult.pcfa2 = adult.eig$vec %*% diag(sqrt(adult.eig$val))
+
+#uniquenesses = diags of S - LL'
+adult.uni = diag(as.matrix(adult.cor) - adult.pcfa2[,1:2] %*% t(adult.pcfa2[,1:2]))
+
+adult.fit.pcfa2 = adult.pcfa2[,1:2] %*% t(adult.pcfa2[,1:2]) + diag(adult.uni)
+
+#m = 3
+#uniquenesses = diags of S - LL'
+adult.uni.3 = diag(as.matrix(adult.cor) - adult.pcfa2[,1:3] %*% t(adult.pcfa2[,1:3]))
+
+adult.fit.pcfa3 = adult.pcfa2[,1:3] %*% t(adult.pcfa2[,1:3]) + diag(adult.uni.3)
+
+cbind(names(adult.cor),adult.pcfa2[,1:3])
+```
+
+### b. What is the residual matrix for the principal components factor analysis model with m = 2 factors? With m = 3 factors?  
+
+    The residual matrices are displayed below.  
+    
+```{r}
+#m=2 residuals
+adult.res2 = adult.cor - adult.fit.pcfa2
+adult.res2
+
+#m=3 residuals
+adult.res3 = adult.cor - adult.fit.pcfa3
+adult.res3
+
+
+```
+### c. Perform a maximum likelihood factor analysis based on the given correlation matrix, for m = 2 and m = 3 factors. [Note that the ‘factanal()’ function in R can operate on just a covariance or correlation matrix instead of a full dataset: you just have to instead provide the argument ‘covmat = ’.] Describe how you might interpret the resulting factors for each model: can you describe the underlying latent variables for these two models? Which variables contribute most to each factor?  
+    
+    For the 2-factor model, the first factor appears to be a "size" factor, similar to the principal components model above, with weight, height and fev contributing heavily. The second factor is also similar, providing a contrast between sbp and aai.  
+    The 3-factor model retains the "size" factor, but the second factor from the 2-factor model is now the third factor. The new second factor is loaded most heavily on ldl, making it an "LDL cholesterol" factor.  
+    
+```{r}
+#w/o rotations
+adult.mlfa2 = factanal(covmat = as.matrix(adult.cor), f = 2, rotation = "none")
+
+adult.mlfa3 = factanal(covmat = as.matrix(adult.cor), f = 3, rotation = "none")
+adult.mlfa2
+adult.mlfa3
+
+#w/ rotations
+adult.mlfa2.rot = factanal(covmat = as.matrix(adult.cor), f = 2, rotation = "varimax")
+adult.mlfa3.rot = factanal(covmat = as.matrix(adult.cor), f = 3, rotation = "varimax")
+adult.mlfa2.rot
+adult.mlfa3.rot
+
+```
+### d. What is the residual matrix for the maximum likelihood factor analysis model with m = 2 factors? With m = 3 factors?    
+    
+    The residual error matrices are displayed below.  
+    
+```{r}
+#m=2 residuals
+adult.fit.mlfa2 = adult.mlfa2$loadings[1:12,1:2] %*% t(adult.mlfa2$loadings[1:12,1:2]) + diag(adult.mlfa2$uniquenesses)
+
+adult.mlfa.res2 = adult.cor - adult.fit.mlfa2
+adult.mlfa.res2
+
+#m=3 residuals
+adult.fit.mlfa3 = adult.mlfa3$loadings[1:12,1:3] %*% t(adult.mlfa3$loadings[1:12,1:3]) + diag(adult.mlfa3$uniquenesses)
+
+adult.mlfa3.res3 = adult.cor - adult.fit.mlfa3
+adult.mlfa3.res3
+```
+### e. Which method (principal components or maximum likelihood) do you prefer for this data? Explain your choice.  
+    
+    The maximum likelihood model with 3 factors exhibits the lowest residual error and hence is preferred.     
+
+```{r}
+sum((abs(adult.res3) < abs(adult.res2)))
+sum((abs(adult.mlfa3.res3) < abs(adult.mlfa.res2)))
+sum((abs(adult.mlfa3.res3) < abs(adult.res2)))
+
+```
+  
+### f. Are the factors resulting from the two methods similar for the m = 2 models? Are the factors from the two methods similar for the m = 3 models?  
+    
+    Yes, the factors (and their most heavily loaded variables) and their interpretatios are quite similar between the PCFA and MLFA models. One difference to note is the ordering of factors in the 3-factor case: the PCFA model has the "cholesterol" factor as explaining the third-most variance, whereas the MLFA has a similar factor explaining the second-most variance.  
+    
+```{r}
+
+
+```
+    
+## 2. Track data  
+```{r}
+track = read.csv("TrackData.csv")
+head(track)
+```
+  
+### a. Calculate the Euclidean distances between all of the pairs of countries. Using these distances as a measure of dissimilarity, cluster the countries using single linkage and complete linkage hierarchical clustering procedures. Plot the dendrograms and compare the results. Which linkage produces a `better' clustering of this data, in your opinion? Explain your answer.  
+    
+    While both approaches result in very imbalanced dendrograms, the "complete linkage" distance produces clustering that likely generalizes better. The single linkage distance produces clustering that prefers one large cluster and several small clusters.   
+
+```{r, fig.width=12}
+dim(track)
+
+#scale
+track.distEuc.sc = dist(scale(track[,3:10]))
+
+#get distance matrix
+track.distEuc = dist(track[,3:10], method = "euc")
+
+#hier clustering
+track.hsEuc = hclust(track.distEuc.sc, method = "single")
+track.hcEuc = hclust(track.distEuc.sc, method = "complete")
+
+par(mfrow=c(1,2))
+plot(track.hsEuc, labels=track$Abbrev, hang=-1)
+plot(track.hcEuc, labels=track$Abbrev, hang=-1)
+
+```
+
+### b. Perform a k-means clustering for the countries for k = 2;  3;  and 4. Produce tables/lists indicating which countries are grouped together for each k-means clustering. 
+
+    The cluster lists are displayed below.  
+
+```{r}
+klist = vector(mode = "list", length = 3)
+for(i in 2:4){
+  writeLines(paste0("k == ",i))
+  track.km = kmeans(track[,3:10], centers = i, nstart = 10)
+  for(j in 1:i){
+    writeLines(paste0("\tcluster: ",j))
+    print(track[track.km$clus==j,"Abbrev"])
+    writeLines("")
+  }
+  klist[[i-1]] = track.km$clust
+  
+  writeLines("\n")
+}
+
+```
+
+### c. Compare the k-means clustering results from part b. to the hierarchical clustering results from part a. Do you prefer k -means clustering or hierarchical clustering for this data? Explain your answer.  
+    
+    The hierarchical clustering with 3 clusters appears to produce less overlap in the pairs plot below, and is the preferred solution.  
+    
+```{r}
+track.hc = cutree(track.hcEuc, k = 3)
+pairs(track[3:10], col=track.hc + 1)
+for (i in 1:3){
+  track.km = klist[i]
+  print(table(track.hc, track.km[[1]]))
+  print(pairs(track[3:10], col=track.km[[1]] + 1))
+  writeLines("")
+  
+}
+```
+
+### d. Use Mahalanobis distance instead of Euclidean distance to perform complete linkage hierarchical clustering of the countries.  How does the resulting clustering compare to the clustering using Euclidean distance?  
+    
+    Using the Mahalanobis distance in hierarchical clustering with complete linkage produces similarly imbalanced clusters at low values of g, but splitting the dendrogram at the max difference in distance results in a pairs plot with severe overlap and little separation between clusters. One cluster contains the vast majority of observations, and other clusters have small populations. For these reasons, the solution using Euclidean distance is preferred.    
+    
+```{r, fig.width=12}
+#compute mahalanobis distance
+track.cov = cov(track[,3:10])
+track.sph = as.matrix(track[,3:10]) %*% t(chol(solve(track.cov)))
+track.distMah = dist(track.sph)
+
+track.hcMah = hclust(track.distMah, method = "complete")
+pairs(track[3:10], col=cutree(track.hcMah, k=4)+1)
+
+par(mfrow=c(1,2))
+plot(track.hcEuc, labels = track[,"Abbrev"], hang=-1)
+plot(track.hcMah, labels = track[,"Abbrev"], hang=-1)
+
+
+```
+
+### Appendix: R code
+```{r ref.label=knitr::all_labels(), echo = T, eval = F}
+```
+
+

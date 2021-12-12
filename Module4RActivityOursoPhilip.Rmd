@@ -1,0 +1,351 @@
+---
+title: "ST558: Module4 R Activity"
+author: "Philip Ourso"
+date: "October 26, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, warning=FALSE, message=FALSE, echo=FALSE}
+library(tidyverse)
+library(gridExtra)
+library(corrplot)
+```
+
+# Set working dir and read in data  
+
+```{r}
+setwd("C:/Users/pourso/Google Drive/School/st558")
+iris = read.csv('IrisData.csv')
+exam = read.csv('ExamData.csv')
+```
+  
+1. Read in ‘SeedsData.csv’, which contains measurements on 7 geometric variables describing the shape and size of wheat kernels from 3 different varieties.  Save this data as ‘seeds’, and display the first six rows of the dataset.    
+  
+    The first 6 rows are displayed below.    
+    
+```{r}
+seeds = read.csv('SeedsData.csv')
+head(seeds,6)
+```
+
+2. Read in ‘PollutionData.csv’, which contains air-pollution measurements that were taken at 12:00 noon in Los Angeles on 42 different days. For each day,the amount of wind and solar radiation were measured, along with quantities of 2 different pollutants (NO2  and O3). Save this data as ‘pollut’, and display the first six rows of the dataset.  
+    
+    The pairwise scatterplots are created below.    
+    
+```{r}
+pollut = read.csv('PollutionData.csv')
+head(pollut,6)
+```
+
+# Performing equal variance two-sample Hotelling’s T2 test by hand  
+    
+    
+```{r}
+#separate irises by type
+irisT1 = iris[iris$Type==1,1:4]
+irisT2 = iris[iris$Type==2,1:4]
+
+n1 = nrow(irisT1)
+n2 = nrow(irisT2)
+
+p = ncol(irisT1)
+
+#compute mean vecs, covariance matrices, pooled covariance
+irisT1.mean = apply(irisT1,2,mean)
+irisT2.mean = apply(irisT2,2,mean)
+
+irisT1.cov = cov(irisT1)
+irisT2.cov = cov(irisT2)
+
+pooled.cov = (irisT1.cov*(n1-1) + irisT2.cov*(n2-1))/(n1+n2-2)
+
+#equal variance
+T2stat.eq = (irisT1.mean-irisT2.mean)%*%solve((1/n1 + 1/n2)*pooled.cov) %*% (irisT1.mean - irisT2.mean)
+T2stat.eq
+
+#scale stat to compare to F dist
+T2stat.eq.scale = (n1+n2-p-1)/((n1+n2-2)*p)*T2stat.eq
+T2stat.eq.scale
+
+#compute p-value
+pval.eq = 1 - pf(T2stat.eq.scale,p,n1+n2-p-1)
+pval.eq
+```
+
+3. Using the ‘seeds’ data, calculate the equal-variance version of the two-sample Hotelling’s T2 test statistic to test that seed Variety 1 and seed Variety 2 have the same population mean vector.   What is the value of the scaled version of the resulting T2 test statistic?  
+    
+    The scaled test statistic is 72.7.  
+```{r}
+#get mean vecs, covariance, pooled covariance
+head(seeds)
+seeds1 = seeds[seeds$Variety==1,1:5]
+seeds2 = seeds[seeds$Variety==2,1:5]
+
+seeds1.mean = apply(seeds1,2,mean)
+seeds1.cov = cov(seeds1)
+n1 = nrow(seeds1)
+
+seeds2.mean = apply(seeds2,2,mean)
+seeds2.cov = cov(seeds2)
+n2 = nrow(seeds2)
+
+p = ncol(seeds1)
+
+#pooled cov
+seeds.pooled.cov = (seeds1.cov*(n1-1) + seeds2.cov*(n2-1))/(n1+n2-2)
+
+#calculate T2 test-stat assuming equal variance
+seeds.T2stat.eq = (seeds1.mean-seeds2.mean)%*%solve((1/n1 + 1/n2)*seeds.pooled.cov) %*% (seeds1.mean - seeds2.mean)
+seeds.T2stat.eq
+
+#scale stat to compare to F dist
+seeds.T2stat.eq.scale = (n1+n2-p-1)/((n1+n2-2)*p)*seeds.T2stat.eq
+seeds.T2stat.eq.scale
+
+#compute p-value
+seeds.pval.eq = 1 - pf(seeds.T2stat.eq.scale,p,n1+n2-p-1)
+seeds.pval.eq
+
+```
+
+4. What is the p-value corresponding to the equal-variance version of the two-sample Hotelling’s T2 test comparing the population mean vectors of Varieties 1 and 2?  
+    
+    The p-value is effectively 0.  
+
+5. Based on the results of the equal-variance two-sample Hotelling’s T2 test, what is your hypothesis test decision at level 0.05?  
+  
+    The p-value is below the significance level 0.05 and hence we reject the null hypothesis of equal means.  
+  
+
+# Performing equal variance two-sample Hotelling’s T2 test using functions in contributed R packages  
+
+```{r}
+library(ICSNP)
+HotellingsT2(irisT1,irisT2)
+
+library(rrcov)
+T2.test(irisT1,irisT2)
+```
+
+6. For the ‘seeds’ data, use the ‘HotellingsT2()’ function to confirm your calculations for the equal-variance version of the two-sample Hotelling’s T2 test statistic to test that seed Variety 1 and seed Variety 2 have the same population mean vector.  
+    
+    The scaled test stat and resulting p-value appear to be the same as the hand calculations.  
+```{r}
+HotellingsT2(seeds1,seeds2)
+#T2.test(seeds1,seeds2)
+```
+
+7. For the ‘seeds’ data, use the ‘T2.test()’ function to confirm your calculations for the equal-variance version of the two-sample Hotelling’s T2 test statistic to test that seed Variety 1 and seed Variety 2 have the same population mean vector.   
+    
+    The test stats and resulting p-value appear to be the same as the hand calculations.  
+    
+```{r}
+#HotellingsT2(seeds1,seeds2)
+T2.test(seeds1,seeds2)
+```
+
+# Performing unequal variance two-sample Hotelling’s T2 test by hand    
+
+```{r}
+#compute unequal variances test stat
+n1 = nrow(irisT1)
+n2 = nrow(irisT2)
+p = ncol(irisT1)
+T2stat.un = (irisT1.mean- irisT2.mean) %*% 
+  solve(irisT1.cov/n1 + irisT2.cov/n2) %*%
+  (irisT1.mean - irisT2.mean)
+T2stat.un
+
+#get p-value from chi-square dist
+pval.un = 1 - pchisq(T2stat.un,p)
+pval.un
+```
+
+8. Using the ‘seeds’ data, calculate the unequal-variance version of the two-sample Hotelling’s T2 test statistic to test that seed Variety 1 and seed Variety 2 have the same population mean vector.   What is the value of the resulting T2 test statistic?    
+    
+    The test stat is 374.4, as in the test with equal covariances, due to identical sample sizes.  
+    
+```{r}
+#compute unequal variances test stat
+n1 = nrow(seeds1)
+n2 = nrow(seeds2)
+p = ncol(seeds1)
+seeds.T2stat.un = (seeds1.mean- seeds2.mean) %*% 
+  solve(seeds1.cov/n1 + seeds2.cov/n2) %*%
+  (seeds1.mean - seeds2.mean)
+seeds.T2stat.un
+
+#get p-value from chi-square dist
+seeds.pval.un = 1 - pchisq(seeds.T2stat.un,p)
+seeds.pval.un
+```
+
+9. What is the p-value corresponding to the unequal-variance version of the two-sample Hotelling’s T2 test comparing the population mean vectors of Varieties 1 and 2?  
+    
+    The p-value is again really small, effectively zero.      
+
+10. Based on the results of the unequal-variance two-sample Hotelling’s T2 test, what is your hypothesis test decision at level 0.05?  
+    
+    As in the case with equal variances, given such small p-value, we should reject the null hypothesis of equal means.  
+
+
+# MANOVA by hand  
+
+
+```{r}
+#separate groups and compute covariances
+irisT1 = iris[iris$Type==1,1:4]
+irisT2 = iris[iris$Type==2,1:4]
+irisT3 = iris[iris$Type==3,1:4]
+
+n1 = nrow(irisT1)
+n2 = nrow(irisT2)
+n3 = nrow(irisT3)
+
+#group covariances
+irisT1.cov = cov(irisT1)
+irisT2.cov = cov(irisT2)
+irisT3.cov = cov(irisT3)
+
+#total covariance
+Ntot = n1 + n2 + n3
+iris.cov = cov(iris[,1:4])
+
+#within, total sum-of-squares
+WW = (n1-1)*irisT1.cov + (n2-1)*irisT2.cov + (n3-1)*irisT3.cov
+TT = (Ntot-1)*iris.cov
+
+#calc Wilk's Lambda statistic
+LamStat = det(WW)/det(TT)
+LamStat
+
+#scale and get p-val from asymptotic chi-squared dist
+p = ncol(irisT1)
+k = length(unique(iris$Type))
+LamStat.scaled = -(Ntot-1-(p+k)/2)*log(LamStat)
+LamStat.scaled
+1 - pchisq(LamStat.scaled,p*(k-1))
+```
+
+11. Using the ‘seeds’ data, perform a MANOVA by hand to test the hypothesis that the population mean vectors for the three varieties are all equal.   What is the value of the resulting Wilks’ Lambda test statistic?  
+    
+    The value of the Wilk's Lambda test stat is 0.083.  
+    
+```{r}
+#separate groups and compute covariances
+seeds3=seeds[seeds$Variety==3,1:5]
+n1 = nrow(seeds1)
+n2 = nrow(seeds2)
+n3 = nrow(seeds3)
+
+seeds3.cov = cov(seeds3)
+
+#total cov
+ntot = n1+n2+n3
+seeds.cov = cov(seeds[,1:5])
+
+#within, total SS
+WWW = (n1-1)*seeds1.cov + (n2-1)*seeds2.cov + (n3-1)*seeds3.cov
+TTT = (ntot-1)*seeds.cov
+
+#calc Wilk's Lambda statistic
+seeds.LamStat = det(WWW)/det(TTT)
+seeds.LamStat
+
+#scale and get p-val from asymptotic chi-squared dist
+p = ncol(seeds1)
+k = length(unique(seeds$Variety))
+seeds.LamStat.scaled = -(ntot-1-(p+k)/2)*log(seeds.LamStat)
+seeds.LamStat.scaled
+1 - pchisq(seeds.LamStat.scaled,p*(k-1))
+
+
+```
+
+12. What is the value of the scaled version of the Wilks’ Lambda statistic, that we would compare to a chi-squared distribution?   
+    
+    The scaled test stat is 509.7  
+
+13. What is the p-value from the chi-squared approximation to the distribution of the scaled Wilks’ Lambda statistic?  
+
+      The p-value is so small its effectively zero.  
+
+14. What is your conclusion based on this result: at level 0.05, would you conclude that it is plausible that the three different wheat varieties have the same population mean vectors for these variables?    
+
+    Given the p-value we must reject the null hypothesis of equal means across groups.    
+
+# MANOVA using functions in R
+
+```{r}
+#Wilk's Lambda stat
+Wilks.test(iris[,1:4],grouping=iris$Type)
+
+#Pillai trace stat
+iris.manova = manova(as.matrix(iris[,1:4]) ~ iris$Type)
+iris.manova
+summary(iris.manova)
+summary(iris.manova, test='Wilks')
+```
+
+15. Using the ‘seeds’ data, perform a MANOVA using the ‘Wilks.test()’ function to confirm the results you got by hand.    
+
+    The function appears to match the hand calculations.  
+    
+```{r}
+Wilks.test(seeds[,1:5],grouping=seeds$Variety)
+```
+# Multivariate multiple linear regression
+
+```{r}
+head(exam)
+exam = as.matrix(exam)
+
+exam.y = exam[,1:2]
+exam.x = exam[,3:5]
+head(exam.y)
+head(exam.x)
+
+mod.all = lm(exam.y ~ exam.x)
+mod.all
+
+summary(mod.all)
+
+mod.0 = lm(exam.y ~ 1)
+anova(mod.all, mod.0)
+
+mod.2 = lm(exam.y ~ exam.x[,-2])
+anova(mod.all, mod.2)
+```
+
+16. Using the ‘pollut’ data, fit a multivariate multiple regression model with the pollutant levels (‘NO2’ and ‘O3’) as response variables and ‘Wind’ and ‘SolarRad’ as predictor variables. Are either of the predictors significant at level 0.1 in either of the univariate response models?    
+    
+    The univariate model for O3 is significant at the 0.1 level for solar radiation measured.  
+
+```{r}
+head(pollut)
+pollut = as.matrix(pollut)
+pollut.x = pollut[,1:2]
+pollut.y = pollut[,3:4]
+mod.all = lm(pollut.y ~ pollut.x)
+mod.all
+summary(mod.all)
+```
+
+17. Fit a reduced multivariate regression model that has just ‘Wind’ as a predictor variable (that is, leaving out ‘SolarRad’), and use the ‘anova()’ function to compare this reduced model to the full model.  What is your conclusion based on the result?    
+    
+    Based on the resulting p-value for the MANOVA test, 0.14, we fail to reject the null hypothesis that the reduced model is sufficient, and hence conclude that the solar radiation variable does not have a linear effect on the response variables.  
+    
+```{r}
+head(pollut.x)
+mod.red = lm(pollut.y ~ pollut.x[,-2])
+anova(mod.all, mod.red)
+```
+
+    
+## Appendix: R code
+```{r ref.label=knitr::all_labels(), echo = T, eval = F}
+```

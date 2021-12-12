@@ -1,0 +1,360 @@
+---
+title: "ST558: Module3 R Activity"
+author: "Philip Ourso"
+date: "October 19, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, warning=FALSE, message=FALSE, echo=FALSE}
+library(tidyverse)
+library(gridExtra)
+library(corrplot)
+```
+
+# Set working dir and read in data  
+
+```{r}
+setwd("C:/Users/pourso/Google Drive/School/st558")
+sweat = read.csv('SweatData.csv')
+```
+  
+1. Read in ‘HRBPData.csv’, which contains made-up data representing the Heart Rate, Diastolic Blood Pressure, and Systolic Blood Pressure for 40 people who were at rest when the measurements were taken.  Save this data as ‘hrbp’, and display the first six rows of the dataset.    
+  
+    The first 6 rows are displayed below.    
+    
+```{r}
+hrbp = read.csv('HRBPData.csv')
+head(hrbp,6)
+```
+
+2. Produce all pairwise scatterplots of the variables in the ‘hrbp’ data, and include the sample mean as a red solid point and the null hypothesis μ_0  = [70  80  120]T as a green solid point.  
+    
+    The pairwise scatterplots are created below.    
+    
+```{r}
+hrbp.plus = rbind(hrbp, apply(hrbp, 2, mean), c(70,80,120))
+pairs(hrbp.plus, 
+      pch=rep(c(1,19,19),c(nrow(hrbp),1,1)),
+      col=rep(c("black","red","green"),c(nrow(hrbp),1,1)))
+```
+
+# Performing simultaneous univariate t-tests with Bonferroni correction  
+
+```{r}
+mu0.1 <- c(4.1, 42.0, 10.5)
+mu0.2 <- c(5.3, 43.2, 10.5)
+sweat.xbar= apply(sweat, 2, mean)
+sweat.vars= apply(sweat, 2, var)
+sweat.aug = rbind(sweat, sweat.xbar, mu0.1, mu0.2)
+pairs(sweat.aug, 
+      col=rep(1:4, c(20, 1, 1, 1)),
+      pch=rep(c(1,16),c(20,3)))
+n = nrow(sweat)
+p = ncol(sweat)
+
+ts.1 <- (sweat.xbar - mu0.1)/sqrt(sweat.vars/n)
+ts.2 <- (sweat.xbar - mu0.2)/sqrt(sweat.vars/n)
+ts.1
+ts.2
+t.test(sweat[,1],mu=mu0.2[1])
+t.test(sweat[,2],mu=mu0.2[2])
+t.test(sweat[,3],mu=mu0.2[3])
+
+# Bonferroni correction alpha* = alpha/ p
+alpha = 0.05
+alpha.star = alpha/ p
+crit.t = qt(alpha.star/2, df=n-1, lower.tail=FALSE)
+crit.t
+
+abs(ts.1) > crit.t
+any(abs(ts.1)) > crit.t
+abs(ts.2) > crit.t
+any(abs(ts.2)) > crit.t
+
+# univariate p-values, uncorrected
+ps.1.raw = 2*(1-pt(abs(ts.1),n-1))
+ps.2.raw = 2*(1-pt(abs(ts.2),n-1))
+ps.1.raw
+ps.2.raw
+
+# univaraite p-values, corrected
+ps.1.bon = ps.1.raw*p
+ps.2.bon = ps.2.raw*p
+ps.1.bon
+ps.2.bon
+
+
+
+```
+
+3. Using the ‘hrbp’ data, calculate the univariate t-statistics to test that the mean vector is μ_0  = [70  80  120]T.  What are the values of the resulting t-statistics?  
+    
+    The t-statistics are displayed below.  
+```{r}
+hrbp.mu0 = c(70, 80, 120)
+hrbp.xbar = apply(hrbp,2,mean)
+hrbp.vars = apply(hrbp,2,var)
+
+hrbp.ts.1 = (hrbp.xbar - hrbp.mu0)/sqrt(hrbp.vars/nrow(hrbp))
+hrbp.ts.1
+
+
+```
+
+4. Calculate the Bonferroni corrected p-values corresponding to the simultaneous univariate t-tests from the previous part.  
+    
+    The Bonferroni-corrected p-values are provided below.  
+    
+```{r}
+# create raw p-values
+hrbp.ps.raw = 2*(1-pt(abs(hrbp.ts.1),nrow(hrbp)-1))
+#hrbp.ps.raw
+
+# Bonferroni correction
+hrbp.ps.bon = hrbp.ps.raw*ncol(hrbp)
+hrbp.ps.bon
+```
+
+5. Based on the simultaneous univariate t-tests, would you reject the hypothesis that the population mean vector is μ_0   = [70  80  120]T at level 0.05?  
+  
+    The univariate p-values are below the significance level 0.05 and hence we reject the null hypothesis stated above.  
+  
+```{r}
+if(any(abs(hrbp.ps.bon)<0.05 )){
+  abs(hrbp.ps.bon)<0.05
+}
+
+```
+
+# Performing Hotelling's T^2 test (by hand)  
+
+```{r}
+sweat.cov = cov(sweat)
+T.1 = n*t( (sweat.xbar-mu0.1) ) %*% solve(sweat.cov) %*%
+  (sweat.xbar-mu0.1)
+T.2 = n*t( (sweat.xbar-mu0.2) ) %*% solve(sweat.cov) %*%
+  (sweat.xbar-mu0.2)
+T.1
+T.2
+
+T.1scale = (n-p)/((n-1)*p)*T.1
+T.2scale = (n-p)/((n-1)*p)*T.2
+T.1scale
+T.2scale
+
+crit.F = qf(1-alpha, df1 = p, df2 = n-p)
+crit.F
+
+T.1scale>crit.F
+T.2scale>crit.F
+
+p.1 = 1 - pf(T.1scale,df1=p,df2=n-p)
+p.2 = 1 - pf(T.2scale,df1=p,df2=n-p)
+p.1
+p.2
+```
+
+6. Using the ‘hrbp’ data, perform Hotelling’s T2 test by hand to test the null hypothesis μ_0   = [70  80  120]T.  
+    (i) What is the value of the scaled test statistic?  
+        The test statistic is 8.89.
+    (ii) What is the resulting p-value?  
+        The p-value is 0.00014.  
+    (iii) What is the decision: would you reject or fail to reject the hypothesis that the population mean vector is μ_0   = [70  80  120]T?  
+        Given the extremely low p-value, I would reject the null hypothesis at a significance level of 0.05.  
+  
+```{r}
+hrbp.cov = cov(hrbp)
+hrbp.T = nrow(hrbp)*t( (hrbp.xbar-hrbp.mu0) ) %*%
+  solve(hrbp.cov) %*%
+  (hrbp.xbar-hrbp.mu0)
+hrbp.T.scale = (nrow(hrbp)-ncol(hrbp))/((nrow(hrbp)-1 )*ncol(hrbp))*hrbp.T
+hrbp.T.scale
+hrbp.p = 1 - pf(hrbp.T.scale,df1=ncol(hrbp),df2=nrow(hrbp)-ncol(hrbp))
+hrbp.p
+```
+
+# Hotelling's T^2 test using functions in contributed R packages  
+
+```{r}
+library(ICSNP)
+#help(HotellingsT2)
+
+T.1
+T.1scale
+p.1
+
+T.2
+T.2scale
+p.2
+
+HotellingsT2(sweat, mu=mu0.1)
+HotellingsT2(sweat, mu=mu0.2)
+
+```
+
+```{r}
+library(rrcov)
+#help(T2.test)
+
+T2.test(sweat,mu=mu0.1)
+T2.test(sweat,mu=mu0.2)
+
+```
+
+7. Using the ‘hrbp’ data, perform Hotelling’s T2 test using the ‘T2.test()’ function to test the null hypothesis μ_0   = [70  80  120]T.  Do the results match what you got by hand?   
+    
+    Yes, the results appear to match hand calculations.  
+    
+```{r}    
+
+T2.test(hrbp,mu=hrbp.mu0)
+
+```
+
+# Hotelling's T^2 test for paired data    
+
+```{r}
+sweat.pair = read.csv("SweatPairedData.csv")
+head(sweat.pair)
+
+sweat.diffs = sweat.pair[,4:6] - sweat.pair[,1:3]
+head(sweat.diffs)
+
+n = nrow(sweat.diffs)
+p = ncol(sweat.diffs)
+
+mu0 = rep(0,3)
+
+sweat.diffs.mean = apply(sweat.diffs,2,mean)
+sweat.diffs.vars = apply(sweat.diffs,2,var)
+
+tstats = sqrt(n)*(sweat.diffs.mean - mu0)/sqrt(sweat.diffs.vars)
+pvals = 2*(1-pt(abs(tstats),n-1))
+
+tstats
+pvals
+
+pvals.bonf = pvals*p
+pvals.bonf
+
+apply(sweat.diffs,2,t.test)
+
+
+T2.test(sweat.diffs,mu=mu0)
+T2.test(sweat.diffs)
+```
+
+8. Read in ‘HRBPPairedData.csv’, which contains made-up data representing the Heart Rate, Diastolic Blood Pressure, and Systolic Blood Pressure for 40 people who were at rest when the ‘Before’ measurements were taken, and who had just finished walking a mile when the ‘After’ measurements were taken.  Save this data as ‘hrbpPaired’, and display the first six rows of the dataset.    
+    
+    The first 6 rows are displayed below.  
+    
+```{r}
+hrbpPaired = read.csv("HRBPPairedData.csv")
+head(hrbpPaired,6)
+
+```
+
+9. Compute the difference vectors, and use these differences to perform simultaneous univariate tests of the null hypothesis that mean heart rate, mean diastolic blood pressure, and mean systolic blood pressure are the same before and after walking a mile.  
+(i) What are the values of the univariate t-statistics?  
+    1.643, 2.6105, 1.6434  
+(ii) What are the values of the Bonferroni corrected univariate p-values?  
+    0.32520 0.03828 0.32490
+(iii) Based on these results, what would your decision be at level 0.05? Would you reject the hypothesis that the mean heart rate, mean diastolic blood pressure, and mean systolic blood pressure are the same before and after walking a mile
+?  
+    Based on the above p-values, I would reject the null hypothesis of equal means (or differences in means of zero).  
+    
+```{r}
+hrbpPaired.diffs = hrbpPaired[,4:6] - hrbpPaired[,1:3]
+head(hrbpPaired.diffs)
+apply(hrbpPaired.diffs,2, t.test)
+
+hrbpPaired.pvals = c(0.1084, 0.01276, 0.1083) 
+hrbpPaired.pvals.bon = hrbpPaired.pvals * ncol(hrbpPaired.diffs)
+hrbpPaired.pvals.bon
+```
+
+10. Perform Hotelling’s T2 test on the paired data, again to test the null hypothesis that mean heart rate, mean diastolic blood pressure, and mean systolic blood pressure are the same before and after walking a mile.  
+  (i) What is the value of the scaled test statistic?  
+      831.42  
+  (ii) What is the resulting p-value?
+      p-val < 2.2e-16     
+  (iii) What is the decision: would you reject or fail to reject the hypothesis that the difference in the population mean vectors before and after walking a mile is [0  0  0]T?
+      Given the extremely low p-value, I would reject the null hypothesis of equal means.  
+  (iv) How does this compare to the result you got from the simultaneous univariate tests?  
+      The conclusions agree between the two methods.  
+  
+
+```{r}
+T2.test(hrbpPaired)
+```
+# Hotelling's T^2 test for repeated measures data  
+
+```{r}
+adren = read.csv("AdrenalineData.csv")
+head(adren)
+adren = as.matrix(adren)
+contrastMat = rbind(c(-1,1,0,0),
+                    c(-1,0,1,0),
+                    c(-1,0,0,1))
+contrastMat
+contrastObs = adren %*% t(contrastMat)
+head(contrastObs)
+T2.test(contrastObs,mu=rep(0,p))
+```
+
+11. Read in ‘HRRepMeasData.csv’, which contains made-up data representing the Heart Rate for 40 people as they watched five different TV shows: “The Great British Baking Show”, “Friends”, “Saturday Night Live”, the nightly news, and game 7 of the World Series.   Save this data as ‘hrRepMeas’, and display the first six rows of the dataset.  
+    
+    The first 6 rows are displayed below.  
+    
+```{r}
+hrRepMeas = read.csv("HRRepMeasData.csv")
+head(hrRepMeas,6)
+hrRepMeas = as.matrix(hrRepMeas)
+
+```
+
+12. Construct a contrast matrix, and compute the contrast observations corresponding to that contrast matrix.  Display the first six rows of your contrast observations.   
+    
+    The first 6 rows are displayed below.  
+    
+```{r}
+contrast = rbind(c(-1, 1, rep(0,3)),
+                 c(-1, 0, 1, 0, 0),
+                 c(-1, 0, 0, 1, 0),
+                 c(-1, 0, 0, 0, 1))
+contrastO = hrRepMeas %*% t(contrast)
+head(contrastO)
+
+```
+
+13. Perform Hotelling’s T2 test on these contrast observations to test that the average heart rate is the same as people watch each of these five TV shows.   
+  (i) What is the value of the scaled test statistic?  
+      1.4395  
+  (ii) What is the resulting p-value?  
+      0.241  
+  (iii) What is the decision: would you reject or fail to reject the hypothesis that the population means in each of these five conditions are the same?  
+      At the above p-value, I would fail to reject the null hypothesis of equal means.  
+    
+```{r}
+T2.test(contrastO,mu=rep(0,4))
+```
+
+14. Construct a different contrast matrix, and again compute the contrast observations and again perform Hotelling’s T2 test on these contrast observations to test that the average heart rate is the same as people watch each of these five TV shows.   Do you get the same results as in the previous part?    
+    Yes, the results are the same as previously.  
+    
+```{r}
+contrast2 = rbind(c(1, -1, rep(0,3)),
+                 c(0, 1, -1, 0, 0),
+                 c(0, 0, 1, -1, 0),
+                 c(0, 0, 0, 1, -1))
+contrastO2 = hrRepMeas %*% t(contrast2)
+T2.test(contrastO2,mu=rep(0,4))
+```
+
+## Appendix: R code
+```{r ref.label=knitr::all_labels(), echo = T, eval = F}
+```
